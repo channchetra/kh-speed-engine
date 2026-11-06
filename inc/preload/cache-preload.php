@@ -16,3 +16,7 @@ require_once __DIR__ . '/queue-store.php';
 require_once __DIR__ . '/queue.php';
 require_once __DIR__ . '/crawl.php';
 require_once __DIR__ . '/runner.php';
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once __DIR__ . '/cli.php';
+}

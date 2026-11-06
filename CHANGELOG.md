@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.1.1] - 2026-11-07
+
+### Fixed
+- Process the durable queue from admin and AJAX shutdown even when the legacy remaining counter is stale; the queue table is now the source of truth.
+- Heal stale queue counters when the dashboard reads queue status.
+
+### Added
+- WP-CLI queue controls: `wp khse preload status`, `run`, `build`, `clear`, `pause`, `resume`, and `endpoint` for Docker and container hosts.
+
 ## [4.1.0] - 2026-11-07
 
 ### Changed

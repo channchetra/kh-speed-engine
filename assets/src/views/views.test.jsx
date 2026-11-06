@@ -187,7 +187,7 @@ describe('admin views render server-side', () => {
 			['Statistics', <StatisticsView data={data} settings={settings} update={noop} actions={actions} />, 'Cache statistics'],
 			['Expert', <ExpertView settings={settings} update={noop} actions={actions} />, 'Expert mode'],
 			['Benchmark', <BenchmarkView settings={settings} update={noop} actions={actions} />, 'Benchmark settings'],
-			['About', <AboutView data={data} settings={settings} />, 'new in 4.1.0']
+			['About', <AboutView data={data} settings={settings} />, 'Highlights from this release.']
 		];
 
 		for (const [label, node, expected] of views) {

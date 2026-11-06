@@ -184,11 +184,11 @@ function khse_get_preload_token() {
  * @return void
  */
 function khse_admin_drain_preload_queue() {
-	if ( ! khse_is_preload_runnable() || khse_is_preload_queue_paused() || (int) get_option( 'khse_preload_queue_remaining', 0 ) <= 0 ) {
+	if ( ! is_admin() && ! ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
 		return;
 	}
 
-	if ( ! is_admin() && ! ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
+	if ( ! khse_is_preload_runnable() || khse_is_preload_queue_paused() || ! khse_preload_queue_has_pending() ) {
 		return;
 	}
 
@@ -201,7 +201,7 @@ function khse_admin_drain_preload_queue() {
 	while ( ( microtime( true ) - $started ) < 20 ) {
 		$count = khse_process_preload_queue();
 
-		if ( $count <= 0 || (int) get_option( 'khse_preload_queue_remaining', 0 ) <= 0 ) {
+		if ( $count <= 0 || ! khse_preload_queue_has_pending() ) {
 			break;
 		}
 	}
@@ -259,7 +259,7 @@ function khse_ajax_preload_batch() {
 	$processed = 0;
 
 	for ( $i = 0; $i < 5; $i++ ) {
-		if ( (int) get_option( 'khse_preload_queue_remaining', 0 ) <= 0 ) {
+		if ( ! khse_preload_queue_has_pending() ) {
 			break;
 		}
 
@@ -303,18 +303,21 @@ function khse_get_preload_queue_status() {
 	if ( function_exists( 'khse_preload_queue_store_available' ) && khse_preload_queue_store_available() ) {
 		khse_preload_queue_import_transient();
 
-		$counts    = khse_preload_queue_counts();
-		$remaining = (int) $counts['pending'] + (int) $counts['processing'];
-		$processed = (int) get_option( 'khse_preload_queue_processed', 0 );
-		$failed    = (int) $counts['failed'];
-		$total     = (int) get_option( 'khse_preload_queue_total', 0 );
+		$counts         = khse_preload_queue_counts();
+		$remaining      = (int) $counts['pending'] + (int) $counts['processing'];
+		$processed      = (int) get_option( 'khse_preload_queue_processed', 0 );
+		$failed         = (int) $counts['failed'];
+		$total          = $processed + $failed + $remaining;
+		$stored_total   = (int) get_option( 'khse_preload_queue_total', 0 );
+		$stored_left    = (int) get_option( 'khse_preload_queue_remaining', 0 );
+		$stored_failed  = (int) get_option( 'khse_preload_queue_failed', 0 );
 
 		if ( $remaining <= 0 && $failed <= 0 ) {
 			// A worker between deleting the last row and updating its counters
 			// still owns the queue; do not clear state underneath it.
 			$lock = (int) get_option( 'khse_preload_queue_lock', 0 );
 
-			if ( ( $lock <= 0 || ( time() - $lock ) >= 300 ) && ( $total > 0 || $processed > 0 || (int) get_option( 'khse_preload_queue_remaining', 0 ) > 0 ) ) {
+			if ( ( $lock <= 0 || ( time() - $lock ) >= 300 ) && ( $total > 0 || $processed > 0 || $stored_left > 0 ) ) {
 				khse_reset_preload_queue_state();
 			}
 
@@ -326,8 +329,15 @@ function khse_get_preload_queue_status() {
 			);
 		}
 
+		// Heal counters left stale by an interrupted worker or an older build.
+		if ( $stored_left !== $remaining || $stored_failed !== $failed || $stored_total !== $total ) {
+			update_option( 'khse_preload_queue_remaining', $remaining );
+			update_option( 'khse_preload_queue_failed', $failed );
+			update_option( 'khse_preload_queue_total', $total );
+		}
+
 		return array(
-			'total'     => $processed + $failed + $remaining,
+			'total'     => $total,
 			'processed' => $processed,
 			'failed'    => $failed,
 			'remaining' => $remaining,

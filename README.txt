@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.1.0
+Stable tag: 4.1.1
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -126,6 +126,12 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.1.1 (11/7/2026) =
+
+* Process the background queue from admin and AJAX shutdown even when the legacy remaining counter is stale.
+* Heal stale queue counters when the dashboard reads queue status.
+* Add WP-CLI queue controls for Docker and container hosts.
 
 = 4.1.0 (11/7/2026) =
 
