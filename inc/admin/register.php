@@ -62,6 +62,10 @@ function khse_activation() {
 	if ( ! is_dir( $sqlite_dir ) ) {
 		wp_mkdir_p( $sqlite_dir );
 	}
+
+	if ( function_exists( 'khse_preload_queue_install_table' ) ) {
+		khse_preload_queue_install_table();
+	}
 }
 
 /**
@@ -129,6 +133,10 @@ function khse_setup_security_files() {
  * @return void
  */
 function khse_deactivation() {
+	if ( function_exists( 'khse_preload_queue_clear_rows' ) ) {
+		khse_preload_queue_clear_rows();
+	}
+
 	delete_transient( 'khse_preload_queue' );
 	wp_clear_scheduled_hook( 'khse_preload_cache_event' );
 	wp_clear_scheduled_hook( 'khse_preload_queue_event' );

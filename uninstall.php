@@ -32,6 +32,10 @@ if ( 'yes' === $option_uninstall ) {
 
 	global $wpdb;
 
+	// Remove the durable preload queue table.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}khse_preload_queue" );
+
 	// Remove every plugin-owned option, including leftover keys not in the
 	// current schema, plus the pre-rebrand scm_* options.
 	$plugin_option_names = $wpdb->get_col(
