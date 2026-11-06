@@ -185,7 +185,14 @@ function Convert-ToRelativePath {
         [string] $FullPath
     )
 
-    $baseUri = [System.Uri]::new((Resolve-Path -LiteralPath $BasePath).Path.TrimEnd('\') + '\')
+    $basePathResolved = (Resolve-Path -LiteralPath $BasePath).Path
+    $separator = [System.IO.Path]::DirectorySeparatorChar.ToString()
+
+    if (-not $basePathResolved.EndsWith($separator)) {
+        $basePathResolved += $separator
+    }
+
+    $baseUri = [System.Uri]::new($basePathResolved)
     $fileUri = [System.Uri]::new((Resolve-Path -LiteralPath $FullPath).Path)
 
     return [System.Uri]::UnescapeDataString($baseUri.MakeRelativeUri($fileUri).ToString()).Replace('\', '/')
@@ -201,8 +208,16 @@ function Test-ReleaseExclude {
         '.github/',
         '.vscode/',
         '.agents/',
+        '.claude/',
         '.code-review-graph/',
+        '.desloppify/',
+        '.fdx/',
+        '.gitnexus/',
         ".opencode/",
+        '.playwright-mcp/',
+        '.test-results/',
+        'test-results/',
+        'playwright-report/',
         '.understand-anything/',
         '.ua/',
         "$OutDir/",
@@ -241,6 +256,10 @@ function Test-ReleaseExclude {
         'install-tests.sh',
         'phpunit.xml',
         'phpcs.xml',
+        'composer.json',
+        'package.json',
+        'playwright.config.js',
+        'vitest.config.js',
         'sample.txt',
         'composer.lock',
         'bun.lock',
@@ -249,10 +268,12 @@ function Test-ReleaseExclude {
         '.phpunit.result.cache',
         'graphify-out',
         'AGENTS.md',
+        'CLAUDE.md',
         'SESSION_MEMORY.md',
+        'scorecard.png',
         'DESIGN.md',
         'skills-lock.json',
-        'vite.config.js',
+        'vite.config.js'
     )
 
     if ($excludedNames -contains $path) {

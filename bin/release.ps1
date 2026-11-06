@@ -192,6 +192,44 @@ function Ensure-ChangelogSection {
     Write-Host "Added CHANGELOG.md section for $Version"
 }
 
+function Ensure-ReadmeChangelogSection {
+    param(
+        [string] $Path,
+        [string] $Version,
+        [string] $Note
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    $content = Get-Content -LiteralPath $Path -Raw
+
+    if ($content -match "(?m)^=\s*$([regex]::Escape($Version))\s*\(") {
+        Write-Host "README.txt changelog already has $Version"
+        return
+    }
+
+    $date = Get-Date -Format 'M/d/yyyy'
+    $entry = "= $Version ($date) =`r`n`r`n* $Note`r`n`r`n"
+    $heading = [regex] '(?m)^(== Changelog ==\r?\n\r?\n)'
+    $updated = $heading.Replace(
+        $content,
+        [System.Text.RegularExpressions.MatchEvaluator] {
+            param($match)
+            return $match.Groups[1].Value + $entry
+        },
+        1
+    )
+
+    if ($updated -eq $content) {
+        $updated = $content + "`r`n== Changelog ==`r`n`r`n$entry"
+    }
+
+    Write-Utf8NoBom -Path $Path -Value $updated
+    Write-Host "Added README.txt changelog section for $Version"
+}
+
 if (-not (Test-Path -LiteralPath $mainFile)) {
     throw "Cannot find kh-speed-engine.php at $mainFile"
 }
@@ -217,8 +255,26 @@ Update-RegexFile `
 
 Update-RegexFile `
     -Path $mainFile `
-    -Pattern "(?m)^(define\(\s*'KHSE_PLUGIN_VERSION'\s*,\s*')[^']+('\s*\);\s*)$" `
+    -Pattern "(?m)^(\s*define\(\s*'KHSE_PLUGIN_VERSION'\s*,\s*')[^']+('\s*\);\s*)$" `
     -Label 'KHSE_PLUGIN_VERSION' `
+    -Replace { param($match) $match.Groups[1].Value + $Version + $match.Groups[2].Value }
+
+Update-RegexFile `
+    -Path (Join-Path $root 'inc/expert-mode.php') `
+    -Pattern "(?m)^(\s*[$]version\s*=\s*')[^']+(';)" `
+    -Label 'inc/expert-mode.php fallback version' `
+    -Replace { param($match) $match.Groups[1].Value + $Version + $match.Groups[2].Value }
+
+Update-RegexFile `
+    -Path (Join-Path $root 'assets/src/views/about.jsx') `
+    -Pattern "(?m)^(const VERSION = window\.khseDashboard\?\.version \|\| ')[^']+(';)" `
+    -Label 'assets/src/views/about.jsx version' `
+    -Replace { param($match) $match.Groups[1].Value + $Version + $match.Groups[2].Value }
+
+Update-RegexFile `
+    -Path (Join-Path $root 'assets/src/views/about.jsx') `
+    -Pattern '(?m)^(\s*<Card title="What''s new in )[^"]+(")' `
+    -Label 'assets/src/views/about.jsx release heading' `
     -Replace { param($match) $match.Groups[1].Value + $Version + $match.Groups[2].Value }
 
 Update-RegexFile `
@@ -230,6 +286,7 @@ Update-RegexFile `
 Update-FirstVersionFields -Path (Join-Path $root 'package.json') -Count 1 -Version $Version
 
 Ensure-ChangelogSection -Path (Join-Path $root 'CHANGELOG.md') -Version $Version -Note $Note
+Ensure-ReadmeChangelogSection -Path (Join-Path $root 'README.txt') -Version $Version -Note $Note
 
 $buildArgs = @(
     '-ExecutionPolicy', 'Bypass',
@@ -251,7 +308,8 @@ if ($SkipBunBuild) {
     $buildArgs += '-SkipBunBuild'
 }
 
-& powershell @buildArgs
+$shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+& $shell @buildArgs
 
 if ($LASTEXITCODE -ne 0) {
     throw "build-release.ps1 failed with exit code $LASTEXITCODE."

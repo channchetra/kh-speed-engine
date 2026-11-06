@@ -77,15 +77,22 @@ update_regex_file() {
 
     [[ -f "$path" ]] || return 0
 
-    local before after
+    local before after matches
     before="$(cat "$path")"
+    matches="$(KHSE_EXPR="$perl_expr" perl -0777 -ne 'my $count = 0; $count += eval $ENV{KHSE_EXPR}; print $count;' "$path" 2>/dev/null || echo 0)"
+
+    if [[ "${matches:-0}" -eq 0 ]]; then
+        echo "Warning: No version match in $label ($path)" >&2
+        return 0
+    fi
+
     perl -0777 -pi -e "$perl_expr" "$path"
     after="$(cat "$path")"
 
     if [[ "$before" != "$after" ]]; then
         echo "Updated $label"
     else
-        echo "Warning: No version match in $label ($path)" >&2
+        echo "Already at $VERSION: $label"
     fi
 }
 
@@ -94,10 +101,25 @@ update_regex_file "$MAIN_FILE" \
     "s/^(\s*\*\s*Version:\s*)[^\r\n]+/\${1}$VERSION/m" \
     'kh-speed-engine.php plugin header'
 
-# KHSE_PLUGIN_VERSION define.
+# KHSE_PLUGIN_VERSION define. The line is indented inside the version guard.
 update_regex_file "$MAIN_FILE" \
-    "s/^(define\(\s*'KHSE_PLUGIN_VERSION'\s*,\s*')[^']+('\s*\);)/\${1}$VERSION\${2}/m" \
+    "s/^(\s*define\(\s*'KHSE_PLUGIN_VERSION'\s*,\s*')[^']+('\s*\);)/\${1}$VERSION\${2}/m" \
     'KHSE_PLUGIN_VERSION'
+
+# Expert Mode's fallback version. It normally reads the header, but keeping the
+# fallback in sync avoids a stale version when the header cannot be read.
+update_regex_file "$ROOT/inc/expert-mode.php" \
+    "s/(\\\$version\s*=\s*')[^']+(';)/\${1}$VERSION\${2}/" \
+    'inc/expert-mode.php fallback version'
+
+# About page version and release heading.
+update_regex_file "$ROOT/assets/src/views/about.jsx" \
+    "s/(const VERSION = window\.khseDashboard\?\.version \|\| ')[^']+(';)/\${1}$VERSION\${2}/" \
+    'assets/src/views/about.jsx version'
+
+update_regex_file "$ROOT/assets/src/views/about.jsx" \
+    "s/(Card title=\"What's new in )[^\"]+(\")/\${1}$VERSION\${2}/" \
+    'assets/src/views/about.jsx release heading'
 
 # README.txt stable tag.
 update_regex_file "$ROOT/README.txt" \
@@ -106,8 +128,15 @@ update_regex_file "$ROOT/README.txt" \
 
 # package.json first "version" field.
 if [[ -f "$ROOT/package.json" ]]; then
+    PACKAGE_BEFORE="$(cat "$ROOT/package.json")"
     perl -0777 -pi -e "my \$done = 0; s/(\"version\"\s*:\s*\")[^\"]+(\")/\$done++ ? \$& : \$1 . '$VERSION' . \$2/ge" "$ROOT/package.json"
-    echo 'Updated package.json'
+    PACKAGE_AFTER="$(cat "$ROOT/package.json")"
+
+    if [[ "$PACKAGE_BEFORE" != "$PACKAGE_AFTER" ]]; then
+        echo 'Updated package.json'
+    else
+        echo "Already at $VERSION: package.json"
+    fi
 fi
 
 # CHANGELOG.md section.
@@ -130,6 +159,32 @@ if [[ -f "$CHANGELOG" ]]; then
             }
         ' "$CHANGELOG"
         echo "Added CHANGELOG.md section for $VERSION"
+    fi
+fi
+
+# WordPress.org readme changelog entry.
+README_FILE="$ROOT/README.txt"
+
+if [[ -f "$README_FILE" ]]; then
+    if grep -Eq "^=[[:space:]]*$VERSION[[:space:]]*\(" "$README_FILE"; then
+        echo "README.txt changelog already has $VERSION"
+    else
+        README_MONTH="$(date +%m)"
+        README_DAY="$(date +%d)"
+        README_YEAR="$(date +%Y)"
+        README_DATE="$((10#$README_MONTH))/$((10#$README_DAY))/$README_YEAR"
+        README_ENTRY="= $VERSION ($README_DATE) =
+
+* $NOTE
+
+"
+        KHSE_README_ENTRY="$README_ENTRY" perl -0777 -pi -e '
+            my $entry = $ENV{KHSE_README_ENTRY};
+            unless (s/(== Changelog ==\r?\n\r?\n)/$1$entry/) {
+                $_ .= "\n== Changelog ==\n\n" . $entry;
+            }
+        ' "$README_FILE"
+        echo "Added README.txt changelog section for $VERSION"
     fi
 fi
 
