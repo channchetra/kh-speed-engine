@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [4.1.0] - 2026-11-07
 
 ### Changed
 - Preload now stores its queue in a plugin-owned table with per-URL status, attempts, retry backoff, and stale-worker recovery, so a cache flush or deploy cannot lose pending URLs.
@@ -8,6 +8,8 @@
 - Homepage priority URLs stay first in the queue, in the same order as before.
 - Preload failures retry up to three times by default; `khse_preload_max_attempts` and `khse_preload_retry_delay` control the policy.
 - `khse_preload_use_durable_queue` can disable the table and return to the transient queue on hosts that forbid `CREATE TABLE`.
+- Added the Background queue panel with pending, running, and failed counts, a live job table, and pause, resume, retry, and cancel controls.
+- Pausing background work keeps cache invalidation, purging, and post-edit cache safety running.
 
 ## [4.0.0] - 2026-11-06
 
@@ -78,26 +80,6 @@
 - Release build.
 
 ## [3.0.7] - 2026-07-09
-
-### Changed
-- Release build.
-
-## [4.1.2] - 2026-07-09
-
-### Changed
-- Release build.
-
-## [4.1.1] - 2026-07-09
-
-### Changed
-- Release build.
-
-## [4.1.0] - 2026-07-09
-
-### Changed
-- Release build.
-
-## [4.0.0] - 2026-07-09
 
 ### Changed
 - Release build.

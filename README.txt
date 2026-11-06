@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.0.0
+Stable tag: 4.1.0
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -126,6 +126,13 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.1.0 (11/7/2026) =
+
+* Move the preload queue to a durable per-URL table with retries and crash recovery.
+* Add the Background queue panel with pause, resume, retry, and cancel controls.
+* Preserve homepage priority ordering and the existing preload transport/TLS filters.
+* Import existing transient queues automatically and keep the transient as a fallback.
 
 = 4.0.0 (11/5/2026) =
 

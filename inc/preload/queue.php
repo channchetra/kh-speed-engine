@@ -26,6 +26,28 @@ function khse_is_preload_runnable() {
 }
 
 /**
+ * Whether optional background warming is paused.
+ *
+ * Cache invalidation and purging keep working while the queue is paused.
+ *
+ * @return bool
+ */
+function khse_is_preload_queue_paused() {
+	return 'yes' === get_option( 'khse_preload_queue_paused', 'no' );
+}
+
+/**
+ * Pause or resume optional background warming.
+ *
+ * @param bool $paused Whether to pause.
+ *
+ * @return void
+ */
+function khse_set_preload_queue_paused( $paused ) {
+	update_option( 'khse_preload_queue_paused', $paused ? 'yes' : 'no' );
+}
+
+/**
  * Get the configured preload URL limit.
  *
  * @param int|null $limit Optional limit override.
@@ -86,7 +108,7 @@ function khse_schedule_preload_cache( $force = false ) {
  * @return void
  */
 function khse_schedule_preload_queue( $delay = 15 ) {
-	if ( ! function_exists( 'wp_schedule_single_event' ) || ! khse_is_preload_runnable() ) {
+	if ( ! function_exists( 'wp_schedule_single_event' ) || ! khse_is_preload_runnable() || khse_is_preload_queue_paused() ) {
 		return;
 	}
 
@@ -162,7 +184,7 @@ function khse_get_preload_token() {
  * @return void
  */
 function khse_admin_drain_preload_queue() {
-	if ( ! khse_is_preload_runnable() || (int) get_option( 'khse_preload_queue_remaining', 0 ) <= 0 ) {
+	if ( ! khse_is_preload_runnable() || khse_is_preload_queue_paused() || (int) get_option( 'khse_preload_queue_remaining', 0 ) <= 0 ) {
 		return;
 	}
 
@@ -191,7 +213,7 @@ function khse_admin_drain_preload_queue() {
  * @return void
  */
 function khse_kick_preload_queue() {
-	if ( ! khse_is_preload_runnable() || ! function_exists( 'wp_remote_post' ) ) {
+	if ( ! khse_is_preload_runnable() || khse_is_preload_queue_paused() || ! function_exists( 'wp_remote_post' ) ) {
 		return;
 	}
 
@@ -284,15 +306,15 @@ function khse_get_preload_queue_status() {
 		$counts    = khse_preload_queue_counts();
 		$remaining = (int) $counts['pending'] + (int) $counts['processing'];
 		$processed = (int) get_option( 'khse_preload_queue_processed', 0 );
-		$failed    = (int) get_option( 'khse_preload_queue_failed', 0 );
+		$failed    = (int) $counts['failed'];
 		$total     = (int) get_option( 'khse_preload_queue_total', 0 );
 
-		if ( $remaining <= 0 ) {
+		if ( $remaining <= 0 && $failed <= 0 ) {
 			// A worker between deleting the last row and updating its counters
 			// still owns the queue; do not clear state underneath it.
 			$lock = (int) get_option( 'khse_preload_queue_lock', 0 );
 
-			if ( ( $lock <= 0 || ( time() - $lock ) >= 300 ) && ( $total > 0 || $processed > 0 || $failed > 0 || (int) get_option( 'khse_preload_queue_remaining', 0 ) > 0 ) ) {
+			if ( ( $lock <= 0 || ( time() - $lock ) >= 300 ) && ( $total > 0 || $processed > 0 || (int) get_option( 'khse_preload_queue_remaining', 0 ) > 0 ) ) {
 				khse_reset_preload_queue_state();
 			}
 
@@ -358,6 +380,10 @@ function khse_maybe_schedule_preload_cache() {
 	}
 
 	if ( ! function_exists( 'wp_next_scheduled' ) ) {
+		return;
+	}
+
+	if ( khse_is_preload_queue_paused() ) {
 		return;
 	}
 
@@ -485,6 +511,10 @@ function khse_queue_preload_urls( $urls ) {
 function khse_process_preload_queue() {
 	if ( ! khse_is_preload_runnable() ) {
 		khse_reset_preload_queue_state();
+		return 0;
+	}
+
+	if ( khse_is_preload_queue_paused() ) {
 		return 0;
 	}
 

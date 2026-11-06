@@ -162,7 +162,7 @@ function khse_preload_url( $url, $blocking = true, $timeout = 8 ) {
  * @return int
  */
 function khse_preload_homepage_priority_urls( $limit = null, $blocking = true ) {
-	if ( ! khse_is_preload_runnable() ) {
+	if ( ! khse_is_preload_runnable() || khse_is_preload_queue_paused() ) {
 		return 0;
 	}
 
@@ -304,7 +304,7 @@ function khse_get_critical_preload_urls( $limit = 25, $post_id = 0 ) {
  * @return array Dispatched and failed URL counts.
  */
 function khse_preload_critical_urls( $post_id = 0, $delete_existing = true, $driver = null ) {
-	if ( 'enable' !== get_option( 'khse_option_caching_status', 'disable' ) ) {
+	if ( 'enable' !== get_option( 'khse_option_caching_status', 'disable' ) || khse_is_preload_queue_paused() ) {
 		return array(
 			'dispatched' => 0,
 			'failed'     => 0,

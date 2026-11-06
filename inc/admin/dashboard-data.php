@@ -439,7 +439,17 @@ function khse_dashboard_get_status_data() {
 	$queue_processed   = (int) $queue_status['processed'];
 	$queue_failed      = (int) $queue_status['failed'];
 	$queue_remaining   = (int) $queue_status['remaining'];
+	$queue_pending     = $queue_remaining;
+	$queue_running     = 0;
+	$queue_paused      = function_exists( 'khse_is_preload_queue_paused' ) && khse_is_preload_queue_paused();
+	$queue_jobs        = function_exists( 'khse_preload_queue_jobs' ) ? khse_preload_queue_jobs( 20 ) : array();
 	$planned_priority  = 0;
+
+	if ( function_exists( 'khse_preload_queue_store_available' ) && khse_preload_queue_store_available() ) {
+		$queue_counts  = khse_preload_queue_counts();
+		$queue_pending = (int) $queue_counts['pending'];
+		$queue_running = (int) $queue_counts['processing'];
+	}
 
 	if ( khse_is_preload_enabled() ) {
 		// Use the last recorded count; status requests must never crawl the site.
@@ -518,6 +528,11 @@ function khse_dashboard_get_status_data() {
 			'queueProcessed' => $queue_processed,
 			'queueFailed'    => $queue_failed,
 			'queueRemaining' => $queue_remaining,
+			'queuePending'   => $queue_pending,
+			'queueRunning'   => $queue_running,
+			'queuePaused'    => $queue_paused,
+			'queueState'     => $queue_paused ? 'paused' : 'running',
+			'queueJobs'      => $queue_jobs,
 			'lastRun'        => khse_dashboard_format_time( (int) get_option( 'khse_last_preload_time', 0 ) ),
 			'lastPriority'   => khse_dashboard_format_time( (int) get_option( 'khse_last_homepage_priority_preload_time', 0 ) ),
 			'progress'       => $queue_total > 0

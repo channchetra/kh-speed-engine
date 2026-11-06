@@ -12,6 +12,9 @@ const noop = () => {};
 const actions = {
 	refresh: noop,
 	runPreload: noop,
+	pausePreloadQueue: noop,
+	cancelPreloadJob: noop,
+	retryPreloadJob: noop,
 	purgeHomepage: noop,
 	clearAll: noop,
 	clearType: noop,
@@ -149,6 +152,32 @@ describe('admin views render server-side', () => {
 		expect(markup).toMatch(/Run preload/);
 	});
 
+	it('renders the background queue controls and jobs', () => {
+		const queueData = {
+			...data,
+			preload: {
+				...data.preload,
+				queuePending: 1,
+				queueRunning: 0,
+				queueFailed: 1,
+				queuePaused: false,
+				queueJobs: [
+					{id: 4, label: '#4 · /about/', status: 'failed', attempts: 3, updated: '2026-11-06 15:26:09', canRetry: true, canCancel: true}
+				]
+			}
+		};
+
+		const markup = text(
+			<PreloadView data={queueData} settings={settings} update={noop} actions={actions} />
+		);
+
+		expect(markup).toContain('Background queue');
+		expect(markup).toContain('Pause optional work');
+		expect(markup).toContain('#4 · /about/');
+		expect(markup).toContain('Retry');
+		expect(markup).toContain('Cancel');
+	});
+
 	it('renders every settings view', () => {
 		const views = [
 			['Cache', <CacheView settings={settings} update={noop} actions={actions} />, 'Page caching'],
@@ -158,7 +187,7 @@ describe('admin views render server-side', () => {
 			['Statistics', <StatisticsView data={data} settings={settings} update={noop} actions={actions} />, 'Cache statistics'],
 			['Expert', <ExpertView settings={settings} update={noop} actions={actions} />, 'Expert mode'],
 			['Benchmark', <BenchmarkView settings={settings} update={noop} actions={actions} />, 'Benchmark settings'],
-			['About', <AboutView data={data} settings={settings} />, 'new in 4.0.0']
+			['About', <AboutView data={data} settings={settings} />, 'new in 4.1.0']
 		];
 
 		for (const [label, node, expected] of views) {

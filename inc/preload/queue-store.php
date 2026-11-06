@@ -240,16 +240,17 @@ function khse_preload_queue_add_urls( $urls ) {
 		$values       = array();
 
 		foreach ( $chunk as $url ) {
-			$placeholders[] = '(%s, %s, %s, %d, %d, %d)';
+			$placeholders[] = '(%s, %s, %s, %d, %d, %d, %d)';
 			$values[]       = $url;
 			$values[]       = khse_preload_queue_hash_url( $url );
 			$values[]       = 'pending';
 			$values[]       = 0;
 			$values[]       = 0;
 			$values[]       = $now;
+			$values[]       = $now;
 		}
 
-		$sql = "INSERT IGNORE INTO {$table} (url, url_hash, status, attempts, next_attempt, created_at) VALUES " . implode( ', ', $placeholders );
+		$sql = "INSERT IGNORE INTO {$table} (url, url_hash, status, attempts, next_attempt, created_at, updated_at) VALUES " . implode( ', ', $placeholders );
 
 		$suppress = $wpdb->suppress_errors( true );
 
@@ -274,8 +275,9 @@ function khse_preload_queue_add_urls( $urls ) {
 						'attempts'     => 0,
 						'next_attempt' => 0,
 						'created_at'   => $now,
+						'updated_at'   => $now,
 					),
-					array( '%s', '%s', '%s', '%d', '%d', '%d' )
+					array( '%s', '%s', '%s', '%d', '%d', '%d', '%d' )
 				);
 
 				if ( $single ) {
@@ -382,6 +384,184 @@ function khse_preload_queue_pending_urls( $limit = 200 ) {
 }
 
 /**
+ * Human label for one queued URL.
+ *
+ * @param string $url URL.
+ *
+ * @return string
+ */
+function khse_preload_queue_job_label( $url ) {
+	$path  = wp_parse_url( (string) $url, PHP_URL_PATH );
+	$query = wp_parse_url( (string) $url, PHP_URL_QUERY );
+	$label = is_string( $path ) && '' !== $path ? $path : '/';
+
+	if ( is_string( $query ) && '' !== $query ) {
+		$label .= '?' . $query;
+	}
+
+	return $label;
+}
+
+/**
+ * Format a queue timestamp for the admin table.
+ *
+ * @param int $timestamp Unix timestamp.
+ *
+ * @return string
+ */
+function khse_preload_queue_format_time( $timestamp ) {
+	$timestamp = (int) $timestamp;
+
+	if ( $timestamp <= 0 ) {
+		return '—';
+	}
+
+	if ( function_exists( 'wp_date' ) ) {
+		return wp_date( 'Y-m-d H:i:s', $timestamp );
+	}
+
+	return date_i18n( 'Y-m-d H:i:s', $timestamp );
+}
+
+/**
+ * Return recent queue rows for the Background queue table.
+ *
+ * @param int $limit Maximum rows.
+ *
+ * @return array
+ */
+function khse_preload_queue_jobs( $limit = 20 ) {
+	$limit = max( 1, min( 50, (int) $limit ) );
+
+	if ( ! khse_preload_queue_store_available() ) {
+		$queue = get_transient( 'khse_preload_queue' );
+
+		if ( ! is_array( $queue ) ) {
+			return array();
+		}
+
+		$jobs = array();
+
+		foreach ( array_slice( $queue, 0, $limit ) as $index => $url ) {
+			$jobs[] = array(
+				'id'        => 0,
+				'label'     => '#' . ( $index + 1 ) . ' · ' . khse_preload_queue_job_label( $url ),
+				'url'       => (string) $url,
+				'status'    => 'pending',
+				'attempts'  => 0,
+				'updated'   => '—',
+				'canRetry'  => false,
+				'canCancel' => false,
+			);
+		}
+
+		return $jobs;
+	}
+
+	global $wpdb;
+
+	$table = khse_preload_queue_table_name();
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$rows = $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT id, url, status, attempts, updated_at FROM {$table} ORDER BY CASE status WHEN 'processing' THEN 0 WHEN 'pending' THEN 1 WHEN 'failed' THEN 2 ELSE 3 END, id ASC LIMIT %d",
+			$limit
+		),
+		ARRAY_A
+	);
+
+	$jobs = array();
+
+	foreach ( (array) $rows as $row ) {
+		$status = isset( $row['status'] ) ? (string) $row['status'] : 'pending';
+		$id     = isset( $row['id'] ) ? (int) $row['id'] : 0;
+
+		$jobs[] = array(
+			'id'        => $id,
+			'label'     => '#' . $id . ' · ' . khse_preload_queue_job_label( isset( $row['url'] ) ? $row['url'] : '' ),
+			'url'       => esc_url_raw( isset( $row['url'] ) ? $row['url'] : '' ),
+			'status'    => $status,
+			'attempts'  => isset( $row['attempts'] ) ? (int) $row['attempts'] : 0,
+			'updated'   => khse_preload_queue_format_time( isset( $row['updated_at'] ) ? $row['updated_at'] : 0 ),
+			'canRetry'  => 'failed' === $status,
+			'canCancel' => true,
+		);
+	}
+
+	return $jobs;
+}
+
+/**
+ * Cancel one queue row.
+ *
+ * @param int $id Row ID.
+ *
+ * @return bool
+ */
+function khse_preload_queue_cancel_row( $id ) {
+	if ( ! khse_preload_queue_store_available() ) {
+		return false;
+	}
+
+	global $wpdb;
+
+	$table = khse_preload_queue_table_name();
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$deleted = $wpdb->delete( $table, array( 'id' => (int) $id ), array( '%d' ) );
+
+	if ( $deleted ) {
+		khse_preload_queue_sync_counts();
+		khse_preload_queue_mirror_transient();
+	}
+
+	return (bool) $deleted;
+}
+
+/**
+ * Retry one failed queue row.
+ *
+ * @param int $id Row ID.
+ *
+ * @return bool
+ */
+function khse_preload_queue_retry_row( $id ) {
+	if ( ! khse_preload_queue_store_available() ) {
+		return false;
+	}
+
+	global $wpdb;
+
+	$table = khse_preload_queue_table_name();
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$updated = $wpdb->update(
+		$table,
+		array(
+			'status'       => 'pending',
+			'attempts'     => 0,
+			'last_error'   => '',
+			'next_attempt' => 0,
+			'updated_at'   => time(),
+		),
+		array(
+			'id'     => (int) $id,
+			'status' => 'failed',
+		),
+		array( '%s', '%d', '%s', '%d', '%d' ),
+		array( '%d', '%s' )
+	);
+
+	if ( $updated ) {
+		khse_preload_queue_sync_counts();
+		khse_preload_queue_mirror_transient();
+	}
+
+	return (bool) $updated;
+}
+
+/**
  * Mark one row as processing.
  *
  * @param int $id Row ID.
@@ -459,11 +639,18 @@ function khse_preload_queue_fail_row( $id, $attempts, $error ) {
 
 	if ( $attempts >= $max_attempt ) {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$deleted = $wpdb->delete( $table, array( 'id' => (int) $id ), array( '%d' ) );
-
-		if ( $deleted ) {
-			update_option( 'khse_preload_queue_failed', (int) get_option( 'khse_preload_queue_failed', 0 ) + 1 );
-		}
+		$wpdb->update(
+			$table,
+			array(
+				'status'       => 'failed',
+				'last_error'   => substr( (string) $error, 0, 255 ),
+				'next_attempt' => 0,
+				'updated_at'   => time(),
+			),
+			array( 'id' => (int) $id ),
+			array( '%s', '%s', '%d', '%d' ),
+			array( '%d' )
+		);
 
 		khse_preload_queue_sync_counts();
 		khse_preload_queue_mirror_transient();
@@ -632,10 +819,12 @@ function khse_preload_queue_has_pending() {
  * @return array
  */
 function khse_preload_queue_sync_counts() {
-	$remaining = khse_preload_queue_remaining_count();
+	$counts    = khse_preload_queue_counts();
+	$remaining = (int) $counts['pending'] + (int) $counts['processing'];
+	$failed    = (int) $counts['failed'];
 	$processed = (int) get_option( 'khse_preload_queue_processed', 0 );
-	$failed    = (int) get_option( 'khse_preload_queue_failed', 0 );
 
+	update_option( 'khse_preload_queue_failed', $failed );
 	update_option( 'khse_preload_queue_remaining', $remaining );
 	update_option( 'khse_preload_queue_total', $processed + $failed + $remaining );
 

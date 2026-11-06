@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.0.0';
+const VERSION = window.khseDashboard?.version || '4.1.0';
 
 const FEATURES = [
 	{
@@ -32,10 +32,10 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'Rebranded as KH Speed Engine with a cleaner visual identity.',
-	'A new admin experience built around status, caching, and optimization.',
-	'Removed the WooCommerce integration and its admin surface.',
-	'Native WordPress menu and admin bar, with no duplicate navigation.'
+	'Preload now uses a durable per-URL queue, so pending pages survive cache flushes and deploys.',
+	'The Background queue panel shows pending, running, and failed jobs with pause, retry, and cancel controls.',
+	'Homepage priority links stay first, and public hosts keep blocking, certificate-verified preload.',
+	'Existing transient queues are imported automatically; the legacy queue remains a fallback.'
 ];
 
 export default function AboutView({data}) {
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.0.0" description="Highlights from this release.">
+			<Card title="What's new in 4.1.0" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>

@@ -25,6 +25,9 @@ add_action( 'wp_ajax_khse_action_dashboard_clear_cache', 'khse_ajax_dashboard_cl
 add_action( 'wp_ajax_khse_action_dashboard_clear_cache_type', 'khse_ajax_dashboard_clear_cache_type_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_reports', 'khse_ajax_dashboard_reports_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_preload', 'khse_ajax_dashboard_preload_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_preload_pause', 'khse_ajax_dashboard_preload_pause_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_preload_cancel', 'khse_ajax_dashboard_preload_cancel_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_preload_retry', 'khse_ajax_dashboard_preload_retry_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_purge_homepage', 'khse_ajax_dashboard_purge_homepage_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_test_driver', 'khse_ajax_dashboard_test_driver_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_test_url', 'khse_ajax_dashboard_test_url_callback' );
@@ -500,6 +503,88 @@ function khse_ajax_dashboard_preload_callback() {
 				__( '%s preload URLs queued for background processing.', 'kh-speed-engine' ),
 				$count
 			),
+			'status'  => khse_dashboard_get_status_data(),
+		)
+	);
+}
+
+/**
+ * Pause or resume the optional background queue.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_preload_pause_callback() {
+	khse_ajax_dashboard_guard();
+
+	$paused = khse_is_preload_queue_paused();
+
+	khse_set_preload_queue_paused( ! $paused );
+
+	if ( $paused ) {
+		khse_schedule_preload_queue();
+		khse_kick_preload_queue();
+	}
+
+	wp_send_json_success(
+		array(
+			'message' => $paused
+				? __( 'Background queue resumed. Optional warming continues.', 'kh-speed-engine' )
+				: __( 'Background queue paused. Cache invalidation keeps running.', 'kh-speed-engine' ),
+			'status'  => khse_dashboard_get_status_data(),
+		)
+	);
+}
+
+/**
+ * Cancel one background queue row.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_preload_cancel_callback() {
+	khse_ajax_dashboard_guard();
+
+	$job_id = isset( $_POST['jobId'] ) && is_scalar( $_POST['jobId'] ) ? absint( wp_unslash( $_POST['jobId'] ) ) : 0;
+
+	if ( $job_id <= 0 || ! khse_preload_queue_cancel_row( $job_id ) ) {
+		wp_send_json_error(
+			array(
+				'message' => __( 'That background job is no longer queued.', 'kh-speed-engine' ),
+			)
+		);
+	}
+
+	wp_send_json_success(
+		array(
+			'message' => __( 'Background job cancelled.', 'kh-speed-engine' ),
+			'status'  => khse_dashboard_get_status_data(),
+		)
+	);
+}
+
+/**
+ * Retry one failed background queue row.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_preload_retry_callback() {
+	khse_ajax_dashboard_guard();
+
+	$job_id = isset( $_POST['jobId'] ) && is_scalar( $_POST['jobId'] ) ? absint( wp_unslash( $_POST['jobId'] ) ) : 0;
+
+	if ( $job_id <= 0 || ! khse_preload_queue_retry_row( $job_id ) ) {
+		wp_send_json_error(
+			array(
+				'message' => __( 'That background job can no longer be retried.', 'kh-speed-engine' ),
+			)
+		);
+	}
+
+	khse_schedule_preload_queue();
+	khse_kick_preload_queue();
+
+	wp_send_json_success(
+		array(
+			'message' => __( 'Background job queued for retry.', 'kh-speed-engine' ),
 			'status'  => khse_dashboard_get_status_data(),
 		)
 	);

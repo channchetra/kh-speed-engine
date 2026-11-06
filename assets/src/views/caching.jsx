@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Check, Code2, Play, RefreshCcw, Search, Trash2, Zap} from 'lucide-react';
+import {Check, Code2, Pause, Play, RefreshCcw, RotateCcw, Search, Trash2, Zap} from 'lucide-react';
 import {
 	Button,
 	Card,
@@ -10,12 +10,13 @@ import {
 	Pill,
 	Progress,
 	Select,
+	Stat,
 	StatusRow,
 	Switch,
 	Textarea,
 	TextInput
 } from '../components/ui.jsx';
-import {formatNumber, lineCount, ttlLabel} from '../lib/format.js';
+import {formatNumber, humanLabel, lineCount, ttlLabel} from '../lib/format.js';
 
 const DB_OPTIONS = Array.from({length: 16}, (_, index) => ({value: String(index), label: `DB${index}`}));
 
@@ -663,6 +664,97 @@ function PreloadQueue({status}) {
 	);
 }
 
+function BackgroundQueue({preload, actions}) {
+	const pending = Number(preload.queuePending) || 0;
+	const running = Number(preload.queueRunning) || 0;
+	const failed = Number(preload.queueFailed) || 0;
+	const paused = Boolean(preload.queuePaused);
+	const jobs = Array.isArray(preload.queueJobs) ? preload.queueJobs : [];
+	const state = paused ? 'Paused' : 'Running';
+	const statusTone = (status) => {
+		if (status === 'failed') {
+			return 'danger';
+		}
+
+		return status === 'processing' ? 'info' : 'neutral';
+	};
+
+	return (
+		<Card
+			title="Background queue"
+			description="Pause optional warming and generation. Cache invalidation keeps running."
+			action={(
+				<Button
+					variant="secondary"
+					icon={paused ? Play : Pause}
+					onClick={() => actions.pausePreloadQueue()}
+				>
+					{paused ? 'Resume optional work' : 'Pause optional work'}
+				</Button>
+			)}
+			padded={false}
+		>
+			<div className="khse-queue-dashboard">
+				<div className="khse-kpis">
+					<Stat label="Pending" value={formatNumber(pending)} tone="blue" />
+					<Stat label="Running" value={formatNumber(running)} tone="cyan" />
+					<Stat label="Failed" value={formatNumber(failed)} tone={failed > 0 ? 'red' : 'green'} />
+					<Stat label="State" value={state} tone={paused ? 'amber' : 'green'} />
+				</div>
+			</div>
+			<div className="khse-table-wrap">
+				<table className="khse-table khse-queue-table">
+					<thead>
+						<tr>
+							<th>Job</th>
+							<th>Status</th>
+							<th>Attempts</th>
+							<th>Updated</th>
+							<th className="khse-table__action">Action</th>
+						</tr>
+					</thead>
+					<tbody>
+						{jobs.length ? jobs.map((job) => (
+							<tr key={`${job.id}-${job.label}`}>
+								<td data-label="Job"><strong>{job.label}</strong></td>
+								<td data-label="Status">
+									<Pill tone={statusTone(job.status)}>
+										{job.status === 'processing' ? 'Running' : humanLabel(job.status)}
+									</Pill>
+								</td>
+								<td data-label="Attempts">{formatNumber(job.attempts)}</td>
+								<td data-label="Updated">{job.updated}</td>
+								<td data-label="Action" className="khse-table__action">
+									{job.canRetry ? (
+										<Button size="sm" variant="secondary" icon={RotateCcw} onClick={() => actions.retryPreloadJob(job.id)}>
+											Retry
+										</Button>
+									) : null}
+									{job.canCancel ? (
+										<Button size="sm" variant="secondary" icon={Trash2} onClick={() => actions.cancelPreloadJob(job.id)}>
+											Cancel
+										</Button>
+									) : null}
+								</td>
+							</tr>
+						)) : (
+							<tr>
+								<td colSpan={5} data-label="Queue">
+									<EmptyState
+										icon={Zap}
+										title="No background jobs"
+										description="Run preload to queue pages for warming."
+									/>
+								</td>
+							</tr>
+						)}
+					</tbody>
+				</table>
+			</div>
+		</Card>
+	);
+}
+
 export function PreloadView({data, settings, update, actions}) {
 	const preload = settings.preload || {};
 	const status = data.preload || {};
@@ -721,6 +813,8 @@ export function PreloadView({data, settings, update, actions}) {
 					</div>
 				</div>
 			</Card>
+
+			<BackgroundQueue preload={status} actions={actions} />
 
 			<Card title="Scope" description="Choose what preload warms and how many URLs it processes per run.">
 				<div className="khse-scope-top">

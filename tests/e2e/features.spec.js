@@ -36,6 +36,12 @@ test.describe('KH Speed feature tour', () => {
 		await page.getByRole('button', { name: 'Preload', exact: true }).first().click();
 		await expect(page.locator('h1')).toContainText('Preload');
 		await expect(page.getByRole('button', { name: /run preload/i }).first()).toBeVisible();
+		await expect(page.getByText('Background queue')).toBeVisible();
+		await expect(page.getByRole('button', { name: /pause optional work|resume optional work/i })).toBeVisible();
+		const queueStats = page.locator('.khse-queue-dashboard');
+		await expect(queueStats.getByText('Pending', { exact: true })).toBeVisible();
+		await expect(queueStats.getByText('Failed', { exact: true })).toBeVisible();
+		await expect(queueStats.getByText('State', { exact: true })).toBeVisible();
 		await page.screenshot({ path: `${shots}/preload.png`, fullPage: true });
 
 		await page.getByRole('button', { name: 'Exclusion rules', exact: true }).first().click();
