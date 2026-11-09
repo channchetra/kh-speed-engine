@@ -7,6 +7,7 @@ import {CacheView, PreloadView, RulesView} from './caching.jsx';
 import DashboardView from './dashboard.jsx';
 import {PerformanceView, StatisticsView} from './optimization.jsx';
 import {BenchmarkView, ExpertView} from './tools.jsx';
+import {SystemDebugView} from './system-debug.jsx';
 
 const noop = () => {};
 const actions = {
@@ -21,6 +22,11 @@ const actions = {
 	testDriver: () => Promise.resolve({passed: true, message: 'ok'}),
 	testUrl: () => Promise.resolve({cacheable: true, checks: []}),
 	getNginxSnippet: () => Promise.resolve({snippet: '', enabled: false}),
+	getSystemDebug: () => Promise.resolve({}),
+	toggleDebug: () => Promise.resolve({}),
+	clearDebug: () => Promise.resolve({}),
+	productionDebug: () => Promise.resolve({}),
+	notify: noop,
 	loadReports: () => Promise.resolve(),
 	go: noop
 };
@@ -176,6 +182,55 @@ describe('admin views render server-side', () => {
 		expect(markup).toContain('#4 · /about/');
 		expect(markup).toContain('Retry');
 		expect(markup).toContain('Cancel');
+	});
+
+	it('renders system, proxy, and preload diagnostics', () => {
+		const debugData = {
+			debugEnabled: true,
+			system: [
+				{
+					label: 'WordPress',
+					rows: [
+						{label: 'WordPress', value: '7.1.4', status: 'info', detail: ''},
+						{label: 'HTTPS', value: 'Yes', status: 'pass', detail: ''}
+					]
+				}
+			],
+			proxy: {
+				behindProxy: true,
+				confidence: 'high',
+				provider: 'Cloudflare',
+				remoteAddr: '192.168.128.2',
+				serverAddr: '192.168.128.3',
+				homeHost: 'new.mptc.cloud',
+				homeIp: '192.168.128.4',
+				homePrivate: true,
+				isSsl: true,
+				forwardedProto: 'https',
+				serverSoftware: 'nginx',
+				containerized: true,
+				warnings: ['Home host resolves to a private IP.'],
+				headers: [
+					{name: 'X-Forwarded-For', value: '203.0.113.5', present: true, status: 'pass'}
+				]
+			},
+			preloadLog: [
+				{id: 1, jobId: 4, label: '/about/', attempt: 1, status: 'retry', httpStatus: 403, errorCode: 'http_403', errorMessage: 'Blocked by proxy.', mode: 'blocking', durationMs: 120, createdAt: '2026-11-09 11:00:00'}
+			],
+			queue: {total: 1, processed: 0, failed: 0, remaining: 1, jobs: []}
+		};
+
+		const markup = text(
+			<SystemDebugView actions={actions} initialData={debugData} />
+		);
+
+		expect(markup).toContain('Debug mode');
+		expect(markup).toContain('Proxy &amp; request topology');
+		expect(markup).toContain('Behind proxy');
+		expect(markup).toContain('Cloudflare');
+		expect(markup).toContain('System configuration');
+		expect(markup).toContain('Preload attempts');
+		expect(markup).toContain('http_403');
 	});
 
 	it('renders every settings view', () => {

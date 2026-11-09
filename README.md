@@ -20,6 +20,7 @@ KH Speed Engine is an extremely lightweight, high-performance cache plugin that 
 * Optional Nginx direct static cache for the File driver.
 * Optional page optimization before cache storage: HTML minify, inline/external UCSS generation, JS analysis, lazy media, LCP image priority, Google Fonts preconnect, and guarded JavaScript defer.
 * Admin bar purge controls for clearing all cache or only the current page.
+* Tools → System & debug with a debug-mode switch, grouped system configuration, proxy/topology detection, queue health, and bounded per-attempt preload logs.
 * And more...
 
 ## Modular Architecture
@@ -77,7 +78,7 @@ External UCSS is intentionally conservative. It reads only same-site `.css` file
 
 Preloading warms the homepage first (with a blocking request), then same-site links discovered on the homepage, before moving to configured post types and archives. Enable Preload in thedashboard to start queueing immediately, or use the "Run Preload" button to trigger warming on demand.
 
-Large sites can preload up to 1000 URLs. KH Speed Engine queues preload work in small batches so dashboard actions do not have to wait for every URL in one request. Remaining batches are processed via WordPress cron.
+Large sites can preload up to 1000 URLs. KH Speed Engine queues preload work in small batches so dashboard actions do not have to wait for every URL in one request. The Background queue panel shows pending, running, and failed jobs with pause, retry, and cancel controls. Failed rows expose the last HTTP status, transport mode, and error message; enable debug mode in Tools → System & debug to keep a bounded per-attempt log.
 
 ## Vite and Google Sans Admin Console
 

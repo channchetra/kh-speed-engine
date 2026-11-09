@@ -118,6 +118,13 @@ test.describe('KH Speed feature tour', () => {
 		await expect(page.locator('h1')).toContainText('Benchmark');
 		await page.screenshot({ path: `${shots}/benchmark.png`, fullPage: true });
 
+		await openView(page, 'Tools', 'System & debug');
+		await expect(page.getByRole('heading', { name: 'Debug mode' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Proxy & request topology' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'System configuration' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Preload attempts' })).toBeVisible();
+		await page.screenshot({ path: `${shots}/system-debug.png`, fullPage: true });
+
 		await openView(page, 'About', 'About');
 		await expect(page.getByText(/KH Speed Engine/i).first()).toBeVisible();
 		await page.screenshot({ path: `${shots}/about.png`, fullPage: true });

@@ -716,7 +716,20 @@ function BackgroundQueue({preload, actions}) {
 					<tbody>
 						{jobs.length ? jobs.map((job) => (
 							<tr key={`${job.id}-${job.label}`}>
-								<td data-label="Job"><strong>{job.label}</strong></td>
+								<td data-label="Job">
+									<strong>{job.label}</strong>
+									{job.lastError || job.lastHttpStatus ? (
+										<details className="khse-queue-detail">
+											<summary>Why it failed</summary>
+											<dl>
+												<div><dt>Last error</dt><dd>{job.lastError || '—'}</dd></div>
+												<div><dt>HTTP</dt><dd>{job.lastHttpStatus || '—'}</dd></div>
+												<div><dt>Mode</dt><dd>{job.lastMode || '—'}</dd></div>
+												<div><dt>Last attempt</dt><dd>{job.lastAttempt || '—'}</dd></div>
+											</dl>
+										</details>
+									) : null}
+								</td>
 								<td data-label="Status">
 									<Pill tone={statusTone(job.status)}>
 										{job.status === 'processing' ? 'Running' : humanLabel(job.status)}

@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.1.1';
+const VERSION = window.khseDashboard?.version || '4.2.0';
 
 const FEATURES = [
 	{
@@ -32,9 +32,9 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'Preload uses a durable per-URL queue, so pending pages survive cache flushes and deploys.',
-	'The Background queue panel shows pending, running, and failed jobs with pause, retry, and cancel controls.',
-	'WP-CLI queue controls make container and Docker hosts reliable without loopback requests.',
+	'Tools → System & debug shows the hosting stack, proxy headers, and queue health.',
+	'Preload attempts now keep HTTP status, transport mode, error code, and timing details.',
+	'Debug mode can be cleared independently or disabled and cleared for production.',
 	'Homepage priority links stay first, and public hosts keep blocking, certificate-verified preload.'
 ];
 
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.1.1" description="Highlights from this release.">
+			<Card title="What's new in 4.2.0" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>

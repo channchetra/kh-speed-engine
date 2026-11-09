@@ -16,7 +16,7 @@ if ( ! defined( 'KHSE_INC' ) ) {
 }
 
 if ( ! defined( 'KHSE_PRELOAD_DB_VERSION' ) ) {
-	define( 'KHSE_PRELOAD_DB_VERSION', '1' );
+	define( 'KHSE_PRELOAD_DB_VERSION', '2' );
 }
 
 /**
@@ -166,6 +166,10 @@ function khse_preload_queue_install_table() {
 		status varchar(20) NOT NULL DEFAULT 'pending',
 		attempts smallint(5) unsigned NOT NULL DEFAULT 0,
 		last_error varchar(255) NOT NULL DEFAULT '',
+		last_http_status smallint(6) NOT NULL DEFAULT 0,
+		last_error_code varchar(64) NOT NULL DEFAULT '',
+		last_attempt_at bigint(20) unsigned NOT NULL DEFAULT 0,
+		last_mode varchar(20) NOT NULL DEFAULT '',
 		next_attempt bigint(20) unsigned NOT NULL DEFAULT 0,
 		created_at bigint(20) unsigned NOT NULL DEFAULT 0,
 		updated_at bigint(20) unsigned NOT NULL DEFAULT 0,
@@ -176,6 +180,10 @@ function khse_preload_queue_install_table() {
 
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 	dbDelta( $sql );
+
+	if ( function_exists( 'khse_preload_log_install_table' ) ) {
+		khse_preload_log_install_table( $charset_collate );
+	}
 
 	if ( ! khse_preload_queue_table_exists() ) {
 		update_option( 'khse_preload_db_error', time(), false );
@@ -384,184 +392,6 @@ function khse_preload_queue_pending_urls( $limit = 200 ) {
 }
 
 /**
- * Human label for one queued URL.
- *
- * @param string $url URL.
- *
- * @return string
- */
-function khse_preload_queue_job_label( $url ) {
-	$path  = wp_parse_url( (string) $url, PHP_URL_PATH );
-	$query = wp_parse_url( (string) $url, PHP_URL_QUERY );
-	$label = is_string( $path ) && '' !== $path ? $path : '/';
-
-	if ( is_string( $query ) && '' !== $query ) {
-		$label .= '?' . $query;
-	}
-
-	return $label;
-}
-
-/**
- * Format a queue timestamp for the admin table.
- *
- * @param int $timestamp Unix timestamp.
- *
- * @return string
- */
-function khse_preload_queue_format_time( $timestamp ) {
-	$timestamp = (int) $timestamp;
-
-	if ( $timestamp <= 0 ) {
-		return '—';
-	}
-
-	if ( function_exists( 'wp_date' ) ) {
-		return wp_date( 'Y-m-d H:i:s', $timestamp );
-	}
-
-	return date_i18n( 'Y-m-d H:i:s', $timestamp );
-}
-
-/**
- * Return recent queue rows for the Background queue table.
- *
- * @param int $limit Maximum rows.
- *
- * @return array
- */
-function khse_preload_queue_jobs( $limit = 20 ) {
-	$limit = max( 1, min( 50, (int) $limit ) );
-
-	if ( ! khse_preload_queue_store_available() ) {
-		$queue = get_transient( 'khse_preload_queue' );
-
-		if ( ! is_array( $queue ) ) {
-			return array();
-		}
-
-		$jobs = array();
-
-		foreach ( array_slice( $queue, 0, $limit ) as $index => $url ) {
-			$jobs[] = array(
-				'id'        => 0,
-				'label'     => '#' . ( $index + 1 ) . ' · ' . khse_preload_queue_job_label( $url ),
-				'url'       => (string) $url,
-				'status'    => 'pending',
-				'attempts'  => 0,
-				'updated'   => '—',
-				'canRetry'  => false,
-				'canCancel' => false,
-			);
-		}
-
-		return $jobs;
-	}
-
-	global $wpdb;
-
-	$table = khse_preload_queue_table_name();
-
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$rows = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT id, url, status, attempts, updated_at FROM {$table} ORDER BY CASE status WHEN 'processing' THEN 0 WHEN 'pending' THEN 1 WHEN 'failed' THEN 2 ELSE 3 END, id ASC LIMIT %d",
-			$limit
-		),
-		ARRAY_A
-	);
-
-	$jobs = array();
-
-	foreach ( (array) $rows as $row ) {
-		$status = isset( $row['status'] ) ? (string) $row['status'] : 'pending';
-		$id     = isset( $row['id'] ) ? (int) $row['id'] : 0;
-
-		$jobs[] = array(
-			'id'        => $id,
-			'label'     => '#' . $id . ' · ' . khse_preload_queue_job_label( isset( $row['url'] ) ? $row['url'] : '' ),
-			'url'       => esc_url_raw( isset( $row['url'] ) ? $row['url'] : '' ),
-			'status'    => $status,
-			'attempts'  => isset( $row['attempts'] ) ? (int) $row['attempts'] : 0,
-			'updated'   => khse_preload_queue_format_time( isset( $row['updated_at'] ) ? $row['updated_at'] : 0 ),
-			'canRetry'  => 'failed' === $status,
-			'canCancel' => true,
-		);
-	}
-
-	return $jobs;
-}
-
-/**
- * Cancel one queue row.
- *
- * @param int $id Row ID.
- *
- * @return bool
- */
-function khse_preload_queue_cancel_row( $id ) {
-	if ( ! khse_preload_queue_store_available() ) {
-		return false;
-	}
-
-	global $wpdb;
-
-	$table = khse_preload_queue_table_name();
-
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$deleted = $wpdb->delete( $table, array( 'id' => (int) $id ), array( '%d' ) );
-
-	if ( $deleted ) {
-		khse_preload_queue_sync_counts();
-		khse_preload_queue_mirror_transient();
-	}
-
-	return (bool) $deleted;
-}
-
-/**
- * Retry one failed queue row.
- *
- * @param int $id Row ID.
- *
- * @return bool
- */
-function khse_preload_queue_retry_row( $id ) {
-	if ( ! khse_preload_queue_store_available() ) {
-		return false;
-	}
-
-	global $wpdb;
-
-	$table = khse_preload_queue_table_name();
-
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$updated = $wpdb->update(
-		$table,
-		array(
-			'status'       => 'pending',
-			'attempts'     => 0,
-			'last_error'   => '',
-			'next_attempt' => 0,
-			'updated_at'   => time(),
-		),
-		array(
-			'id'     => (int) $id,
-			'status' => 'failed',
-		),
-		array( '%s', '%d', '%s', '%d', '%d' ),
-		array( '%d', '%s' )
-	);
-
-	if ( $updated ) {
-		khse_preload_queue_sync_counts();
-		khse_preload_queue_mirror_transient();
-	}
-
-	return (bool) $updated;
-}
-
-/**
  * Mark one row as processing.
  *
  * @param int $id Row ID.
@@ -623,10 +453,11 @@ function khse_preload_queue_complete_row( $id ) {
  * @param int    $id       Row ID.
  * @param int    $attempts Attempts already made.
  * @param string $error    Error message.
+ * @param array  $context  Optional context: http_status, error_code, mode.
  *
  * @return string Either "retry" or "failed".
  */
-function khse_preload_queue_fail_row( $id, $attempts, $error ) {
+function khse_preload_queue_fail_row( $id, $attempts, $error, $context = array() ) {
 	if ( ! khse_preload_queue_store_available() ) {
 		return 'failed';
 	}
@@ -636,19 +467,28 @@ function khse_preload_queue_fail_row( $id, $attempts, $error ) {
 	$table       = khse_preload_queue_table_name();
 	$attempts    = max( 1, (int) $attempts );
 	$max_attempt = khse_preload_queue_max_attempts();
+	$now         = time();
+	$context     = is_array( $context ) ? $context : array();
+	$http_status = isset( $context['http_status'] ) ? (int) $context['http_status'] : 0;
+	$error_code  = isset( $context['error_code'] ) ? substr( (string) $context['error_code'], 0, 64 ) : '';
+	$mode        = isset( $context['mode'] ) ? substr( (string) $context['mode'], 0, 20 ) : '';
 
 	if ( $attempts >= $max_attempt ) {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$table,
 			array(
-				'status'       => 'failed',
-				'last_error'   => substr( (string) $error, 0, 255 ),
-				'next_attempt' => 0,
-				'updated_at'   => time(),
+				'status'            => 'failed',
+				'last_error'        => substr( (string) $error, 0, 255 ),
+				'last_http_status'  => $http_status,
+				'last_error_code'   => $error_code,
+				'last_attempt_at'   => $now,
+				'last_mode'         => $mode,
+				'next_attempt'      => 0,
+				'updated_at'        => $now,
 			),
 			array( 'id' => (int) $id ),
-			array( '%s', '%s', '%d', '%d' ),
+			array( '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%d' ),
 			array( '%d' )
 		);
 
@@ -662,13 +502,17 @@ function khse_preload_queue_fail_row( $id, $attempts, $error ) {
 	$wpdb->update(
 		$table,
 		array(
-			'status'       => 'pending',
-			'last_error'   => substr( (string) $error, 0, 255 ),
-			'next_attempt' => time() + khse_preload_queue_retry_delay( $attempts ),
-			'updated_at'   => time(),
+			'status'            => 'pending',
+			'last_error'        => substr( (string) $error, 0, 255 ),
+			'last_http_status'  => $http_status,
+			'last_error_code'   => $error_code,
+			'last_attempt_at'   => $now,
+			'last_mode'         => $mode,
+			'next_attempt'      => $now + khse_preload_queue_retry_delay( $attempts ),
+			'updated_at'        => $now,
 		),
 		array( 'id' => (int) $id ),
-		array( '%s', '%s', '%d', '%d' ),
+		array( '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%d' ),
 		array( '%d' )
 	);
 

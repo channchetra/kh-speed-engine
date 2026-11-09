@@ -11,6 +11,7 @@ import {CacheView, PreloadView, RulesView} from './views/caching.jsx';
 import DashboardView from './views/dashboard.jsx';
 import {PerformanceView, StatisticsView} from './views/optimization.jsx';
 import {BenchmarkView, ExpertView} from './views/tools.jsx';
+import {SystemDebugView} from './views/system-debug.jsx';
 
 const boot = window.khseDashboard || {};
 const i18n = boot.i18n || {};
@@ -164,6 +165,11 @@ function App() {
 		testDriver: (driver) => request('khse_action_dashboard_test_driver', {driver}),
 		testUrl: (url) => request('khse_action_dashboard_test_url', {url}),
 		getNginxSnippet: () => request('khse_action_dashboard_nginx_snippet'),
+		getSystemDebug: () => request('khse_action_dashboard_system_debug'),
+		toggleDebug: (enabled) => request('khse_action_dashboard_debug_toggle', {enabled: enabled ? '1' : '0'}),
+		clearDebug: () => request('khse_action_dashboard_debug_clear'),
+		productionDebug: () => request('khse_action_dashboard_debug_production'),
+		notify,
 		loadReports,
 		go
 	};
@@ -198,6 +204,7 @@ function App() {
 						{view === 'statistics' ? <StatisticsView data={data} settings={settings} update={update} actions={actions} /> : null}
 						{view === 'expert' ? <ExpertView settings={settings} update={update} actions={actions} /> : null}
 						{view === 'benchmark' ? <BenchmarkView settings={settings} update={update} actions={actions} /> : null}
+						{view === 'system-debug' ? <SystemDebugView actions={actions} /> : null}
 						{view === 'about' ? <AboutView data={data} settings={settings} /> : null}
 					</section>
 				</div>

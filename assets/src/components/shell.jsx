@@ -47,7 +47,8 @@ export const AREAS = [
 		icon: Wrench,
 		views: [
 			{value: 'expert', label: 'Expert mode'},
-			{value: 'benchmark', label: 'Benchmark'}
+			{value: 'benchmark', label: 'Benchmark'},
+			{value: 'system-debug', label: 'System & debug'}
 		]
 	},
 	{
@@ -97,6 +98,11 @@ export const VIEW_META = {
 		area: 'expert',
 		label: 'Benchmark',
 		description: 'Show the benchmark widget and footer on cached pages.'
+	},
+	'system-debug': {
+		area: 'expert',
+		label: 'System & debug',
+		description: 'Inspect system configuration, proxy headers, and preload attempts.'
 	},
 	about: {
 		area: 'about',

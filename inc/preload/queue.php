@@ -591,27 +591,69 @@ function khse_process_preload_queue_store() {
 
 		// Private/loopback targets can deadlock FPM when the request blocks on
 		// itself. Public hosting keeps the previous blocking, validated path.
-		$blocking = khse_preload_should_block( $url );
-		$response = khse_preload_url( $url, $blocking, $blocking ? 8 : 2 );
-		$error    = '';
+		$blocking    = khse_preload_should_block( $url );
+		$started     = microtime( true );
+		$response    = khse_preload_url( $url, $blocking, $blocking ? 8 : 2 );
+		$http_status = 0;
+		$error_code  = '';
+		$error_text  = '';
+		$log_status  = 'success';
+		$context     = array(
+			'mode' => $blocking ? 'blocking' : 'non-blocking',
+		);
 
-		if ( is_wp_error( $response ) ) {
-			$error = $response->get_error_message();
+		if ( null === $response ) {
+			$error_code = 'invalid_url';
+			$error_text = 'URL was rejected by the same-site check.';
+			$log_status = 'skipped';
+			khse_preload_queue_complete_row( $id );
+		} elseif ( is_wp_error( $response ) ) {
+			$error_code = (string) $response->get_error_code();
+			$error_text = $response->get_error_message();
+			$context['http_status']   = 0;
+			$context['error_code']    = $error_code;
+			$context['error_message'] = $error_text;
+			$context['duration_ms']   = (int) round( ( microtime( true ) - $started ) * 1000 );
+			$log_status = khse_preload_queue_fail_row( $id, $attempts, $error_text, $context );
 		} elseif ( $blocking ) {
 			// A blocking response still has to be a complete HTML document.
 			$status = (int) wp_remote_retrieve_response_code( $response );
 			$body   = wp_remote_retrieve_body( $response );
 
 			if ( $status < 200 || $status >= 400 || empty( $body ) || false === strpos( $body, '</body>' ) || strlen( $body ) < 1024 ) {
-				$error = 'invalid_response';
+				$http_status = $status;
+				$error_code  = 'invalid_response';
+				$error_text  = sprintf( 'HTTP %d; body %d bytes; incomplete HTML document.', $status, strlen( $body ) );
+				$context['http_status']   = $http_status;
+				$context['error_code']    = $error_code;
+				$context['error_message'] = $error_text;
+				$context['duration_ms']   = (int) round( ( microtime( true ) - $started ) * 1000 );
+				$log_status = khse_preload_queue_fail_row( $id, $attempts, $error_text, $context );
+			} else {
+				$http_status = $status;
+				$context['http_status'] = $status;
+				$context['duration_ms'] = (int) round( ( microtime( true ) - $started ) * 1000 );
+				khse_preload_queue_complete_row( $id );
 			}
-		}
-
-		if ( '' !== $error ) {
-			khse_preload_queue_fail_row( $id, $attempts, $error );
 		} else {
+			$context['duration_ms'] = (int) round( ( microtime( true ) - $started ) * 1000 );
 			khse_preload_queue_complete_row( $id );
 		}
+
+		khse_preload_log_add(
+			$id,
+			$url,
+			$attempts,
+			$log_status,
+			array_merge(
+				$context,
+				array(
+					'http_status'   => $http_status,
+					'error_code'    => $error_code,
+					'error_message' => $error_text,
+				)
+			)
+		);
 
 		$processed++;
 	}

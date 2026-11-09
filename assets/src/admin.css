@@ -3604,3 +3604,57 @@ body.folded .khse-savebar {
 	line-height: 1.5;
 	padding: 9px 11px;
 }
+
+/* Preload queue failure details */
+
+.khse-queue-detail {
+	margin-top: 6px;
+	font-size: 11.5px;
+}
+
+.khse-queue-detail summary {
+	color: var(--khse-primary);
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.khse-queue-detail dl {
+	display: grid;
+	gap: 5px;
+	margin: 8px 0 0;
+}
+
+.khse-queue-detail dl > div {
+	display: grid;
+	grid-template-columns: 82px minmax(0, 1fr);
+	gap: 8px;
+}
+
+.khse-queue-detail dt {
+	color: var(--khse-muted);
+	font-weight: 600;
+}
+
+.khse-queue-detail dd {
+	margin: 0;
+	color: var(--khse-ink);
+	overflow-wrap: anywhere;
+}
+
+/* System & debug */
+
+.khse-debug-groups {
+	display: grid;
+	gap: 18px;
+}
+
+.khse-debug-group__title {
+	margin: 0 0 8px;
+	color: var(--khse-ink);
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.khse-debug-actions {
+	flex-wrap: wrap;
+}

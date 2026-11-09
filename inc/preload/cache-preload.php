@@ -12,7 +12,10 @@ if ( ! defined( 'KHSE_INC' ) ) {
     die;
 }
 
+require_once __DIR__ . '/debug.php';
+require_once __DIR__ . '/queue-log.php';
 require_once __DIR__ . '/queue-store.php';
+require_once __DIR__ . '/queue-admin.php';
 require_once __DIR__ . '/queue.php';
 require_once __DIR__ . '/crawl.php';
 require_once __DIR__ . '/runner.php';

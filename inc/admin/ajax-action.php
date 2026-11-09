@@ -15,6 +15,7 @@ require_once KHSE_PLUGIN_DIR . 'inc/admin/url-policy.php';
 require_once KHSE_PLUGIN_DIR . 'inc/admin/driver-tools.php';
 require_once KHSE_PLUGIN_DIR . 'inc/admin/expert-mode-snippet.php';
 require_once KHSE_PLUGIN_DIR . 'inc/admin/dashboard-data.php';
+require_once KHSE_PLUGIN_DIR . 'inc/admin/system-debug.php';
 require_once KHSE_PLUGIN_DIR . 'inc/admin/settings-save.php';
 require_once KHSE_PLUGIN_DIR . 'inc/lib/autoload.php';
 
@@ -33,6 +34,10 @@ add_action( 'wp_ajax_khse_action_dashboard_test_driver', 'khse_ajax_dashboard_te
 add_action( 'wp_ajax_khse_action_dashboard_test_url', 'khse_ajax_dashboard_test_url_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_nginx_snippet', 'khse_ajax_dashboard_nginx_snippet_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_save_settings', 'khse_ajax_dashboard_save_settings_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_system_debug', 'khse_ajax_dashboard_system_debug_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_debug_toggle', 'khse_ajax_dashboard_debug_toggle_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_debug_clear', 'khse_ajax_dashboard_debug_clear_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_debug_production', 'khse_ajax_dashboard_debug_production_callback' );
 
 /**
  * Validate dashboard AJAX request.
@@ -609,6 +614,76 @@ function khse_ajax_dashboard_purge_homepage_callback() {
 				$count
 			),
 			'status'  => khse_dashboard_get_status_data(),
+		)
+	);
+}
+
+/**
+ * Return system configuration, proxy detection, and preload diagnostics.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_system_debug_callback() {
+	khse_ajax_dashboard_guard();
+
+	wp_send_json_success( khse_get_system_debug_data() );
+}
+
+/**
+ * Enable or disable debug mode.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_debug_toggle_callback() {
+	khse_ajax_dashboard_guard();
+
+	$enabled = isset( $_POST['enabled'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['enabled'] ) );
+
+	khse_set_debug_mode( $enabled );
+
+	wp_send_json_success(
+		array(
+			'message' => $enabled
+				? __( 'Debug mode enabled. New preload attempts will be recorded.', 'kh-speed-engine' )
+				: __( 'Debug mode disabled. Existing records were kept until you clear them.', 'kh-speed-engine' ),
+			'debug'   => khse_get_system_debug_data(),
+		)
+	);
+}
+
+/**
+ * Clear stored debug records.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_debug_clear_callback() {
+	khse_ajax_dashboard_guard();
+
+	khse_clear_debug_data();
+
+	wp_send_json_success(
+		array(
+			'message' => __( 'Debug records cleared.', 'kh-speed-engine' ),
+			'debug'   => khse_get_system_debug_data(),
+		)
+	);
+}
+
+/**
+ * Disable debug mode and clear its records for production.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_debug_production_callback() {
+	khse_ajax_dashboard_guard();
+
+	khse_set_debug_mode( false );
+	khse_clear_debug_data();
+
+	wp_send_json_success(
+		array(
+			'message' => __( 'Debug mode disabled and debug records cleared. Production mode is ready.', 'kh-speed-engine' ),
+			'debug'   => khse_get_system_debug_data(),
 		)
 	);
 }

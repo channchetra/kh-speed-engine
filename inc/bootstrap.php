@@ -68,6 +68,7 @@ function khse_get_admin_module_files() {
 		'driver-tools.php',
 		'expert-mode-snippet.php',
 		'dashboard-data.php',
+		'system-debug.php',
 	);
 }
 

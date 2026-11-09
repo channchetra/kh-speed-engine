@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.2.0] - 2026-11-09
+
+### Added
+- Tools → System & debug with a debug-mode switch, grouped system configuration, proxy/topology detection, queue health, and per-attempt preload logs.
+- Preload queue rows now store and display the last HTTP status, error code, transport mode, and attempt time. Failed rows expose a "Why it failed" panel.
+- Debug records are bounded to 1,000 attempts and can be cleared independently or disabled and cleared for production.
+
+### Changed
+- Durable queue schema v2 adds diagnostic columns and a separate bounded preload log table.
+
 ## [4.1.1] - 2026-11-07
 
 ### Fixed
