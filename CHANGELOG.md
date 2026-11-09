@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.2] - 2026-11-09
+
+### Fixed
+- Preload now treats HTTP 4xx responses (except 408 and 429) as permanent failures instead of retrying them three times. A 404 is reported as “the URL is not public or no longer exists”.
+- HTTP 5xx, 408, and 429 responses remain retryable.
+- Failure messages now include the HTTP status text and distinguish permanent client errors from temporary server errors.
+
 ## [4.2.1] - 2026-11-09
 
 ### Added

@@ -616,24 +616,45 @@ function khse_process_preload_queue_store() {
 			$context['duration_ms']   = (int) round( ( microtime( true ) - $started ) * 1000 );
 			$log_status = khse_preload_queue_fail_row( $id, $attempts, $error_text, $context );
 		} elseif ( $blocking ) {
-			// A blocking response still has to be a complete HTML document.
-			$status = (int) wp_remote_retrieve_response_code( $response );
-			$body   = wp_remote_retrieve_body( $response );
+			$status           = (int) wp_remote_retrieve_response_code( $response );
+			$response_message = wp_remote_retrieve_response_message( $response );
+			$body             = wp_remote_retrieve_body( $response );
+			$body_valid       = ! empty( $body ) && false !== strpos( $body, '</body>' ) && strlen( $body ) >= 1024;
+			$is_success       = $status >= 200 && $status < 400 && $body_valid;
+			$is_client_error  = $status >= 400 && $status < 500;
+			$is_retryable_client = in_array( $status, array( 408, 429 ), true );
 
-			if ( $status < 200 || $status >= 400 || empty( $body ) || false === strpos( $body, '</body>' ) || strlen( $body ) < 1024 ) {
-				$http_status = $status;
-				$error_code  = 'invalid_response';
-				$error_text  = sprintf( 'HTTP %d; body %d bytes; incomplete HTML document.', $status, strlen( $body ) );
-				$context['http_status']   = $http_status;
-				$context['error_code']    = $error_code;
-				$context['error_message'] = $error_text;
-				$context['duration_ms']   = (int) round( ( microtime( true ) - $started ) * 1000 );
-				$log_status = khse_preload_queue_fail_row( $id, $attempts, $error_text, $context );
-			} else {
+			if ( $is_success ) {
 				$http_status = $status;
 				$context['http_status'] = $status;
 				$context['duration_ms'] = (int) round( ( microtime( true ) - $started ) * 1000 );
 				khse_preload_queue_complete_row( $id );
+			} else {
+				$http_status = $status;
+
+				if ( $is_client_error && ! $is_retryable_client ) {
+					$error_code = 'http_' . $status;
+					$error_text = sprintf( 'HTTP %d %s; the URL is not public or no longer exists.', $status, $response_message );
+					$retry      = false;
+				} elseif ( $is_client_error ) {
+					$error_code = 'http_' . $status;
+					$error_text = sprintf( 'HTTP %d %s; the server asked the preloader to retry later.', $status, $response_message );
+					$retry      = true;
+				} elseif ( $status >= 500 ) {
+					$error_code = 'http_' . $status;
+					$error_text = sprintf( 'HTTP %d %s; the server returned a temporary error and the URL will retry.', $status, $response_message );
+					$retry      = true;
+				} else {
+					$error_code = 'invalid_response';
+					$error_text = sprintf( 'HTTP %d %s; body %d bytes; incomplete HTML document.', $status, $response_message, strlen( $body ) );
+					$retry      = true;
+				}
+
+				$context['http_status']   = $http_status;
+				$context['error_code']    = $error_code;
+				$context['error_message'] = $error_text;
+				$context['duration_ms']   = (int) round( ( microtime( true ) - $started ) * 1000 );
+				$log_status = khse_preload_queue_fail_row( $id, $attempts, $error_text, $context, $retry );
 			}
 		} else {
 			$context['duration_ms'] = (int) round( ( microtime( true ) - $started ) * 1000 );

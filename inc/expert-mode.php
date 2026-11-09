@@ -87,7 +87,7 @@ function khse_run_expert_mode( $args ) {
 
 	if ( ! defined( 'KHSE_PLUGIN_VERSION' ) ) {
 		$plugin_header = (string) @file_get_contents( $plugin_dir . '/kh-speed-engine.php' );
-		$version       = '4.2.1';
+		$version       = '4.2.2';
 
 		if ( preg_match( '/^\s*\*?\s*Version:\s*([0-9][^\s]*)/mi', $plugin_header, $matches ) ) {
 			$version = trim( $matches[1] );

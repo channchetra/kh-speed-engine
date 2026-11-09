@@ -454,10 +454,11 @@ function khse_preload_queue_complete_row( $id ) {
  * @param int    $attempts Attempts already made.
  * @param string $error    Error message.
  * @param array  $context  Optional context: http_status, error_code, mode.
+ * @param bool   $retry    Whether the URL may be retried.
  *
  * @return string Either "retry" or "failed".
  */
-function khse_preload_queue_fail_row( $id, $attempts, $error, $context = array() ) {
+function khse_preload_queue_fail_row( $id, $attempts, $error, $context = array(), $retry = true ) {
 	if ( ! khse_preload_queue_store_available() ) {
 		return 'failed';
 	}
@@ -473,7 +474,7 @@ function khse_preload_queue_fail_row( $id, $attempts, $error, $context = array()
 	$error_code  = isset( $context['error_code'] ) ? substr( (string) $context['error_code'], 0, 64 ) : '';
 	$mode        = isset( $context['mode'] ) ? substr( (string) $context['mode'], 0, 20 ) : '';
 
-	if ( $attempts >= $max_attempt ) {
+	if ( ! $retry || $attempts >= $max_attempt ) {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$table,
