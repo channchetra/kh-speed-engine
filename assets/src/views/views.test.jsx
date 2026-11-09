@@ -229,8 +229,8 @@ describe('admin views render server-side', () => {
 		expect(markup).toContain('Behind proxy');
 		expect(markup).toContain('Cloudflare');
 		expect(markup).toContain('System configuration');
-		expect(markup).toContain('Preload attempts');
-		expect(markup).toContain('http_403');
+		expect(markup).toContain('Download diagnostics');
+		expect(markup).toContain('Per-attempt preload history');
 	});
 
 	it('renders every settings view', () => {

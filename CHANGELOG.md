@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.2.1] - 2026-11-09
+
+### Added
+- Download diagnostics as a JSON file from Tools → System & debug for support and review.
+
+### Changed
+- Moved per-attempt preload history into the Background queue. Click any queue row to expand its last error, HTTP status, error code, transport mode, attempt time, and attempt history.
+- Attempt history is hidden when debug mode is off, so production mode stays focused on the latest failure only.
+
+### Fixed
+- Scope chips no longer stretch into large circles when the post-type column is taller than the archive column.
+
 ## [4.2.0] - 2026-11-09
 
 ### Added

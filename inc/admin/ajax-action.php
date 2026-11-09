@@ -29,6 +29,7 @@ add_action( 'wp_ajax_khse_action_dashboard_preload', 'khse_ajax_dashboard_preloa
 add_action( 'wp_ajax_khse_action_dashboard_preload_pause', 'khse_ajax_dashboard_preload_pause_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_preload_cancel', 'khse_ajax_dashboard_preload_cancel_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_preload_retry', 'khse_ajax_dashboard_preload_retry_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_preload_job', 'khse_ajax_dashboard_preload_job_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_purge_homepage', 'khse_ajax_dashboard_purge_homepage_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_test_driver', 'khse_ajax_dashboard_test_driver_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_test_url', 'khse_ajax_dashboard_test_url_callback' );
@@ -684,6 +685,34 @@ function khse_ajax_dashboard_debug_production_callback() {
 		array(
 			'message' => __( 'Debug mode disabled and debug records cleared. Production mode is ready.', 'kh-speed-engine' ),
 			'debug'   => khse_get_system_debug_data(),
+		)
+	);
+}
+
+/**
+ * Return one preload queue row and its debug attempts.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_preload_job_callback() {
+	khse_ajax_dashboard_guard();
+
+	$job_id = isset( $_POST['jobId'] ) && is_scalar( $_POST['jobId'] ) ? absint( wp_unslash( $_POST['jobId'] ) ) : 0;
+	$job    = $job_id > 0 ? khse_preload_queue_job( $job_id ) : null;
+
+	if ( null === $job ) {
+		wp_send_json_error(
+			array(
+				'message' => __( 'That background job is no longer queued.', 'kh-speed-engine' ),
+			)
+		);
+	}
+
+	wp_send_json_success(
+		array(
+			'job'          => $job,
+			'attempts'     => khse_preload_log_for_job( $job_id, 20 ),
+			'debugEnabled' => khse_is_debug_mode(),
 		)
 	);
 }

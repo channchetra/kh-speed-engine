@@ -533,6 +533,7 @@ function khse_dashboard_get_status_data() {
 			'queuePaused'    => $queue_paused,
 			'queueState'     => $queue_paused ? 'paused' : 'running',
 			'queueJobs'      => $queue_jobs,
+			'debugEnabled'   => khse_is_debug_mode(),
 			'lastRun'        => khse_dashboard_format_time( (int) get_option( 'khse_last_preload_time', 0 ) ),
 			'lastPriority'   => khse_dashboard_format_time( (int) get_option( 'khse_last_homepage_priority_preload_time', 0 ) ),
 			'progress'       => $queue_total > 0

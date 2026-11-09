@@ -159,6 +159,7 @@ function App() {
 		pausePreloadQueue: () => run('khse_action_dashboard_preload_pause'),
 		cancelPreloadJob: (jobId) => run('khse_action_dashboard_preload_cancel', {jobId}),
 		retryPreloadJob: (jobId) => run('khse_action_dashboard_preload_retry', {jobId}),
+		getPreloadJob: (jobId) => request('khse_action_dashboard_preload_job', {jobId}),
 		purgeHomepage,
 		clearAll,
 		clearType,

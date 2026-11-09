@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {AlertTriangle, Bug, RefreshCcw, Server, Trash2} from 'lucide-react';
+import {AlertTriangle, Download, RefreshCcw, Server, Trash2} from 'lucide-react';
 import {
 	Button,
 	Card,
@@ -9,7 +9,7 @@ import {
 	StatusRow,
 	Switch
 } from '../components/ui.jsx';
-import {formatNumber, humanLabel} from '../lib/format.js';
+import {humanLabel} from '../lib/format.js';
 
 const STATUS_TONE = {
 	pass: 'success',
@@ -128,69 +128,32 @@ function ProxyPanel({proxy}) {
 	);
 }
 
-function PreloadLog({logs, enabled}) {
-	return (
-		<Card
-			title="Preload attempts"
-			description="Successful, retried, and failed attempts recorded while debug mode is on."
-			action={<Pill tone={logs.length ? 'info' : 'neutral'}>{formatNumber(logs.length)} records</Pill>}
-		>
-			{logs.length ? (
-				<div className="khse-table-wrap">
-					<table className="khse-table">
-						<thead>
-							<tr>
-								<th>Time</th>
-								<th>Job</th>
-								<th>Attempt</th>
-								<th>Status</th>
-								<th>HTTP</th>
-								<th>Mode</th>
-								<th>Duration</th>
-								<th>Error</th>
-							</tr>
-						</thead>
-						<tbody>
-							{logs.map((log) => (
-								<tr key={log.id}>
-									<td data-label="Time">{log.createdAt}</td>
-									<td data-label="Job">
-										<strong>#{log.jobId} · {log.label}</strong>
-									</td>
-									<td data-label="Attempt">{formatNumber(log.attempt)}</td>
-									<td data-label="Status">
-										<Pill tone={log.status === 'failed' ? 'danger' : log.status === 'success' ? 'success' : log.status === 'retry' ? 'warning' : 'neutral'}>
-											{humanLabel(log.status)}
-										</Pill>
-									</td>
-									<td data-label="HTTP">{log.httpStatus || '—'}</td>
-									<td data-label="Mode">{humanLabel(log.mode)}</td>
-									<td data-label="Duration">{log.durationMs ? `${formatNumber(log.durationMs)} ms` : '—'}</td>
-									<td data-label="Error">
-										{log.errorCode ? <strong>{log.errorCode}</strong> : null}
-										{log.errorCode && log.errorMessage ? ' · ' : null}
-										{log.errorMessage || '—'}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
-			) : (
-				<EmptyState
-					icon={Bug}
-					title="No debug attempts"
-					description={enabled ? 'Run preload to record attempts.' : 'Enable debug mode, then run preload to record attempts.'}
-				/>
-			)}
-		</Card>
-	);
-}
-
 export function SystemDebugView({actions, initialData = null}) {
 	const [data, setData] = useState(initialData);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState('');
+
+	const download = () => {
+		if (!data) {
+			return;
+		}
+
+		const payload = {
+			...data,
+			downloadedAt: new Date().toISOString()
+		};
+		const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+		link.href = url;
+		link.download = `khse-system-debug-${stamp}.json`;
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+		URL.revokeObjectURL(url);
+	};
 
 	const load = () => {
 		setBusy(true);
@@ -241,7 +204,6 @@ export function SystemDebugView({actions, initialData = null}) {
 
 	const enabled = Boolean(data.debugEnabled);
 	const proxy = data.proxy || {headers: [], warnings: []};
-	const logs = Array.isArray(data.preloadLog) ? data.preloadLog : [];
 
 	return (
 		<div className="khse-stack">
@@ -258,10 +220,14 @@ export function SystemDebugView({actions, initialData = null}) {
 					onChange={(checked) => run(actions.toggleDebug(checked))}
 				/>
 				<div className="khse-inline khse-debug-actions">
+					<Button variant="secondary" icon={Download} onClick={download}>Download diagnostics</Button>
 					<Button variant="secondary" icon={RefreshCcw} busy={busy} onClick={load}>Refresh diagnostics</Button>
 					<Button variant="secondary" icon={Trash2} busy={busy} onClick={() => run(actions.clearDebug())}>Clear debug data</Button>
 					<Button variant="danger" icon={AlertTriangle} busy={busy} onClick={() => run(actions.productionDebug())}>Disable &amp; clear for production</Button>
 				</div>
+				<p className="khse-note">
+					Per-attempt preload history is shown in <strong>Caching → Preload → Background queue</strong> while debug mode is on. Use <strong>Download diagnostics</strong> to save the full report for support.
+				</p>
 				<p className="khse-note">
 					Use <strong>Disable &amp; clear for production</strong> before handing the site to normal traffic. It turns debug off and removes the stored attempts.
 				</p>
@@ -274,7 +240,6 @@ export function SystemDebugView({actions, initialData = null}) {
 				<SystemGroups groups={data.system || []} />
 			</Card>
 
-			<PreloadLog logs={logs} enabled={enabled} />
 		</div>
 	);
 }

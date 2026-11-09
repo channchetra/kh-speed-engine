@@ -122,7 +122,11 @@ test.describe('KH Speed feature tour', () => {
 		await expect(page.getByRole('heading', { name: 'Debug mode' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Proxy & request topology' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'System configuration' })).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Preload attempts' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Download diagnostics' })).toBeVisible();
+		const downloadPromise = page.waitForEvent('download');
+		await page.getByRole('button', { name: 'Download diagnostics' }).click();
+		const download = await downloadPromise;
+		expect(download.suggestedFilename()).toMatch(/^khse-system-debug-/);
 		await page.screenshot({ path: `${shots}/system-debug.png`, fullPage: true });
 
 		await openView(page, 'About', 'About');

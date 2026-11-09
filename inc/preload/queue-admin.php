@@ -53,6 +53,62 @@ function khse_preload_queue_format_time( $timestamp ) {
 }
 
 /**
+ * Format one queue row for the admin UI.
+ *
+ * @param array $row Database row.
+ *
+ * @return array
+ */
+function khse_preload_queue_format_job_row( $row ) {
+	$status = isset( $row['status'] ) ? (string) $row['status'] : 'pending';
+	$id     = isset( $row['id'] ) ? (int) $row['id'] : 0;
+
+	return array(
+		'id'             => $id,
+		'label'          => '#' . $id . ' · ' . khse_preload_queue_job_label( isset( $row['url'] ) ? $row['url'] : '' ),
+		'url'            => esc_url_raw( isset( $row['url'] ) ? $row['url'] : '' ),
+		'status'         => $status,
+		'attempts'       => isset( $row['attempts'] ) ? (int) $row['attempts'] : 0,
+		'updated'        => khse_preload_queue_format_time( isset( $row['updated_at'] ) ? $row['updated_at'] : 0 ),
+		'lastError'      => isset( $row['last_error'] ) ? (string) $row['last_error'] : '',
+		'lastHttpStatus' => isset( $row['last_http_status'] ) ? (int) $row['last_http_status'] : 0,
+		'lastErrorCode'  => isset( $row['last_error_code'] ) ? (string) $row['last_error_code'] : '',
+		'lastMode'       => isset( $row['last_mode'] ) ? (string) $row['last_mode'] : '',
+		'lastAttempt'    => khse_preload_queue_format_time( isset( $row['last_attempt_at'] ) ? $row['last_attempt_at'] : 0 ),
+		'canRetry'       => 'failed' === $status,
+		'canCancel'      => true,
+	);
+}
+
+/**
+ * Return one queue row for the Background queue expansion.
+ *
+ * @param int $id Row ID.
+ *
+ * @return array|null
+ */
+function khse_preload_queue_job( $id ) {
+	if ( ! khse_preload_queue_store_available() ) {
+		return null;
+	}
+
+	global $wpdb;
+
+	$table = khse_preload_queue_table_name();
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$row = $wpdb->get_row(
+		$wpdb->prepare(
+			"SELECT id, url, status, attempts, last_error, last_http_status, last_error_code, last_attempt_at, last_mode, updated_at FROM {$table} WHERE id = %d LIMIT 1",
+			(int) $id
+		),
+		ARRAY_A
+	);
+
+	return is_array( $row ) ? khse_preload_queue_format_job_row( $row ) : null;
+}
+
+/**
  * Return recent queue rows for the Background queue table.
  *
  * @param int $limit Maximum rows.
@@ -108,24 +164,7 @@ function khse_preload_queue_jobs( $limit = 20 ) {
 	$jobs = array();
 
 	foreach ( (array) $rows as $row ) {
-		$status = isset( $row['status'] ) ? (string) $row['status'] : 'pending';
-		$id     = isset( $row['id'] ) ? (int) $row['id'] : 0;
-
-		$jobs[] = array(
-			'id'        => $id,
-			'label'     => '#' . $id . ' · ' . khse_preload_queue_job_label( isset( $row['url'] ) ? $row['url'] : '' ),
-			'url'       => esc_url_raw( isset( $row['url'] ) ? $row['url'] : '' ),
-			'status'    => $status,
-			'attempts'  => isset( $row['attempts'] ) ? (int) $row['attempts'] : 0,
-			'updated'        => khse_preload_queue_format_time( isset( $row['updated_at'] ) ? $row['updated_at'] : 0 ),
-			'lastError'      => isset( $row['last_error'] ) ? (string) $row['last_error'] : '',
-			'lastHttpStatus' => isset( $row['last_http_status'] ) ? (int) $row['last_http_status'] : 0,
-			'lastErrorCode'  => isset( $row['last_error_code'] ) ? (string) $row['last_error_code'] : '',
-			'lastMode'       => isset( $row['last_mode'] ) ? (string) $row['last_mode'] : '',
-			'lastAttempt'    => khse_preload_queue_format_time( isset( $row['last_attempt_at'] ) ? $row['last_attempt_at'] : 0 ),
-			'canRetry'       => 'failed' === $status,
-			'canCancel'      => true,
-		);
+		$jobs[] = khse_preload_queue_format_job_row( $row );
 	}
 
 	return $jobs;

@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.2.0';
+const VERSION = window.khseDashboard?.version || '4.2.1';
 
 const FEATURES = [
 	{
@@ -32,10 +32,10 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'Tools → System & debug shows the hosting stack, proxy headers, and queue health.',
-	'Preload attempts now keep HTTP status, transport mode, error code, and timing details.',
-	'Debug mode can be cleared independently or disabled and cleared for production.',
-	'Homepage priority links stay first, and public hosts keep blocking, certificate-verified preload.'
+	'Download the full system and debug report as JSON for support and review.',
+	'Background queue rows expand to show the last error, HTTP status, transport mode, and attempt history.',
+	'Preload attempt history stays out of production mode until debug is enabled.',
+	'Scope chips now wrap correctly without stretching into circles.'
 ];
 
 export default function AboutView({data}) {
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.2.0" description="Highlights from this release.">
+			<Card title="What's new in 4.2.1" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>
