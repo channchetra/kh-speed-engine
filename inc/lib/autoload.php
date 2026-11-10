@@ -14,6 +14,10 @@ spl_autoload_register(
 		$prefixes = array(
 			'Shieldon\\SimpleCache\\' => __DIR__ . '/simple-cache/',
 			'Psr\\SimpleCache\\'      => __DIR__ . '/psr-simple-cache/',
+			'MatthiasMullie\\Minify\\' => __DIR__ . '/matthiasmullie-minify/',
+			'MatthiasMullie\\PathConverter\\' => __DIR__ . '/matthiasmullie-path-converter/',
+			'Sabberworm\\CSS\\'      => __DIR__ . '/php-css-parser/',
+			'Symfony\\Component\\CssSelector\\' => __DIR__ . '/symfony-css-selector/',
 		);
 
 		foreach ( $prefixes as $prefix => $dir ) {

@@ -2,10 +2,10 @@
 
 Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
-Requires at least: 5.8
+Requires at least: 6.2
 Tested up to: 6.9.4
-Stable tag: 4.4.4
-Requires PHP: 7.1.0
+Stable tag: 4.5.0
+Requires PHP: 8.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
 
@@ -126,6 +126,14 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.5.0 (11/10/2026) =
+
+* Replace the CSS/JS optimizer with the GT Performance 1.3.6 approach.
+* Remove unused CSS in file, inline, or hybrid delivery modes.
+* Defer safe JavaScript, delay selected third-party scripts, and minify local JavaScript.
+* Migrate old UCSS/JS analysis/defer settings to the new switches.
+* Require PHP 8.1 and WordPress 6.2 for the new CSS/JS optimizers.
 
 = 4.4.4 (11/10/2026) =
 

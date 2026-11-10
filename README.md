@@ -5,8 +5,8 @@ KH Speed Engine is an extremely lightweight, high-performance cache plugin that 
 
 ## Requirement
 
-* PHP version 7.1 or later
-* WordPress version 5.8 or later
+* PHP version 8.1 or later
+* WordPress version 6.2 or later
 * Tested up to WordPress 6.9.4
 * Tested up to PHP 8.2.5
 

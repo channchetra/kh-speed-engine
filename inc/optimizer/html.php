@@ -39,29 +39,6 @@ function khse_remove_html_comments( $html ) {
 }
 
 /**
- * Minify style blocks.
- *
- * @param string $html HTML content.
- *
- * @return string
- */
-function khse_minify_inline_css_blocks( $html ) {
-	return preg_replace_callback(
-		'#<style\b([^>]*)>(.*?)</style>#is',
-		function ( $match ) {
-			$minified = khse_minify_css( $match[2] );
-
-			if ( strlen( $minified ) >= strlen( (string) $match[2] ) ) {
-				return $match[0];
-			}
-
-			return '<style' . $match[1] . '>' . $minified . '</style>';
-		},
-		$html
-	);
-}
-
-/**
  * Minify HTML outside protected tags.
  *
  * @param string $html HTML content.
@@ -215,42 +192,4 @@ function khse_add_font_preconnects( $html ) {
 	}
 
 	return $html;
-}
-
-/**
- * Defer external scripts.
- *
- * @param string $html     HTML content.
- * @param array  $settings Optimization settings.
- *
- * @return string
- */
-function khse_defer_scripts( $html, $settings ) {
-	// PHP analysis is the safe mode. Do not let the legacy broad pass defer the
-	// scripts the analyzer deliberately rejected.
-	if ( 'yes' === $settings['js_analysis'] ) {
-		return $html;
-	}
-
-	$exclusions = khse_get_lines_from_textarea( $settings['js_exclusions'] );
-
-	return preg_replace_callback(
-		'#<script\b[^>]*\bsrc\s*=\s*(["\']).*?\1[^>]*></script>#is',
-		function ( $match ) use ( $exclusions ) {
-			$tag = $match[0];
-
-			if (
-				khse_html_tag_is_excluded( $tag, $exclusions ) ||
-				khse_html_has_attribute( $tag, 'defer' ) ||
-				khse_html_has_attribute( $tag, 'async' ) ||
-				false !== stripos( $tag, 'type="module"' ) ||
-				false !== stripos( $tag, "type='module'" )
-			) {
-				return $tag;
-			}
-
-			return preg_replace( '/^<script\b/i', '<script defer', $tag, 1 );
-		},
-		$html
-	);
 }

@@ -27,20 +27,19 @@ class PageOptimizationReportTest extends WP_UnitTestCase {
 			array(
 				'minify_html',
 				'remove_comments',
-				'minify_inline_css',
+				'css_enabled',
 				'lazy_media',
 				'critical_images',
 				'preconnect_fonts',
-				'defer_js',
-				'external_ucss',
-				'local_ucss',
-				'js_analysis',
+				'javascript_minify',
+				'javascript_defer',
+				'javascript_delay',
 			),
 			array_keys( $report['features'] )
 		);
 
-		$this->assertSame( 'disabled', $report['features']['external_ucss']['status'] );
-		$this->assertSame( 'Disabled.', $report['features']['external_ucss']['detail'] );
+		$this->assertSame( 'disabled', $report['features']['css_enabled']['status'] );
+		$this->assertSame( 'Disabled.', $report['features']['css_enabled']['detail'] );
 	}
 
 	/**

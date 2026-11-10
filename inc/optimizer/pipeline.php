@@ -30,9 +30,8 @@ function khse_optimize_html( $html ) {
 		$html = khse_remove_html_comments( $html );
 	}
 
-	if ( 'yes' === $settings['minify_inline_css'] ) {
-		$html = khse_minify_inline_css_blocks( $html );
-	}
+	$html = khse_optimize_css_gt( $html );
+	$html = khse_optimize_javascript_gt( $html );
 
 	if ( 'yes' === $settings['lazy_media'] || 'yes' === $settings['critical_images'] ) {
 		$html = khse_optimize_media_tags( $html, $settings );
@@ -40,22 +39,6 @@ function khse_optimize_html( $html ) {
 
 	if ( 'yes' === $settings['preconnect_fonts'] ) {
 		$html = khse_add_font_preconnects( $html );
-	}
-
-	if ( 'yes' === $settings['external_ucss'] ) {
-		$html = khse_apply_external_ucss( $html, $settings );
-	}
-
-	if ( 'yes' === $settings['local_ucss'] ) {
-		$html = khse_apply_local_ucss( $html, $settings );
-	}
-
-	if ( 'yes' === $settings['js_analysis'] ) {
-		$html = khse_apply_local_js_analysis( $html, $settings );
-	}
-
-	if ( 'yes' === $settings['defer_js'] ) {
-		$html = khse_defer_scripts( $html, $settings );
 	}
 
 	if ( 'yes' === $settings['minify_html'] ) {
@@ -75,6 +58,13 @@ function khse_get_page_optimization_requirements() {
 	$work_dir_ready = is_dir( $work_dir ) && is_writable( $work_dir );
 
 	return array(
+		'platform'     => array(
+			'label'  => __( 'PHP 8.1 and WordPress 6.2', 'kh-speed-engine' ),
+			'passed' => khse_gt_optimization_available(),
+			'detail' => khse_gt_optimization_available()
+				? __( 'The CSS and JavaScript optimizers can run.', 'kh-speed-engine' )
+				: __( 'The new CSS/JavaScript optimizers need PHP 8.1+ and WordPress 6.2+. Other optimizations still run.', 'kh-speed-engine' ),
+		),
 		'cache_status' => array(
 			'label'  => __( 'Page cache enabled', 'kh-speed-engine' ),
 			'passed' => 'enable' === get_option( 'khse_option_caching_status', 'disable' ),

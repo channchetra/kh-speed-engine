@@ -49,7 +49,7 @@ class SettingsBooleansTest extends WP_UnitTestCase {
 		$this->assertIsBool( $data['benchmark']['widget'] );
 		$this->assertIsBool( $data['benchmark']['footer'] );
 
-		foreach ( array( 'status', 'minify_html', 'remove_comments', 'minify_inline_css', 'lazy_media', 'critical_images', 'preconnect_fonts', 'defer_js', 'external_ucss', 'local_ucss', 'js_analysis' ) as $key ) {
+		foreach ( array( 'status', 'minify_html', 'remove_comments', 'lazy_media', 'critical_images', 'preconnect_fonts', 'css_enabled', 'css_keep_dynamic_states', 'javascript_minify', 'javascript_defer', 'javascript_delay' ) as $key ) {
 			$this->assertIsBool( $data['performance'][ $key ] );
 		}
 	}

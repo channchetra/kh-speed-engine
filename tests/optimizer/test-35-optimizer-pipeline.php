@@ -24,10 +24,9 @@ class OptimizerPipelineTest extends WP_UnitTestCase {
 		parent::tear_down();
 	}
 
-	public function test_pipeline_applies_enabled_transforms() {
+	public function test_pipeline_applies_html_and_media_transforms() {
 		$settings           = khse_get_default_page_optimization_settings();
 		$settings['status'] = 'yes';
-		$settings['defer_js'] = 'yes';
 		update_option( 'khse_option_page_optimization', $settings );
 
 		$html = '<html><head><style> .x { color: red; } </style></head><body><!-- safe comment --><div>  <p>a</p>  </div><img src="hero.jpg"><img src="second.jpg"><script src="app.js"></script></body></html>';
@@ -35,10 +34,8 @@ class OptimizerPipelineTest extends WP_UnitTestCase {
 		$result = khse_optimize_html( $html );
 
 		$this->assertStringNotContainsString( 'safe comment', $result );
-		$this->assertStringContainsString( '.x{color:red}', $result );
 		$this->assertMatchesRegularExpression( '/<img[^>]*src="hero\.jpg"[^>]*fetchpriority="high"/', $result );
 		$this->assertMatchesRegularExpression( '/<img[^>]*src="second\.jpg"[^>]*loading="lazy"/', $result );
-		$this->assertStringContainsString( '<script defer src="app.js">', $result );
 	}
 
 	public function test_disabled_pipeline_returns_input_unchanged() {

@@ -27,14 +27,6 @@ class PageOptimizerTransformsTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( '<script>  var x = 1;  </script>', $result );
 	}
 
-	public function test_inline_css_blocks_are_minified() {
-		$html = '<style> .card { color: red; padding: 0 10px; } </style>';
-
-		$result = khse_minify_inline_css_blocks( $html );
-
-		$this->assertStringContainsString( '.card{color:red;padding:0 10px}', $result );
-	}
-
 	public function test_media_tags_prioritize_the_first_image_and_lazy_load_the_rest() {
 		$settings                        = khse_get_default_page_optimization_settings();
 		$settings['lazy_media']          = 'yes';
@@ -53,55 +45,6 @@ class PageOptimizerTransformsTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( '<link rel="preload" as="image"', $result );
 	}
 
-	public function test_defer_scripts_skips_analyzer_mode_and_exclusions() {
-		$settings                 = khse_get_default_page_optimization_settings();
-		$settings['js_analysis']  = 'no';
-		$settings['js_exclusions'] = "excluded.js";
-
-		$html = '<script src="app.js"></script><script src="excluded.js"></script><script src="module.js" type="module"></script>';
-
-		$result = khse_defer_scripts( $html, $settings );
-
-		$this->assertStringContainsString( '<script defer src="app.js">', $result );
-		$this->assertStringNotContainsString( '<script defer src="excluded.js">', $result );
-		$this->assertStringNotContainsString( '<script defer src="module.js"', $result );
-	}
-
-	public function test_javascript_analyzer_flags_unsafe_sources() {
-		$this->assertTrue( khse_analyze_javascript_source( 'window.addEventListener("load", boot);' )['safeToDefer'] );
-		$this->assertFalse( khse_analyze_javascript_source( 'document.write("unsafe");' )['safeToDefer'] );
-		$this->assertFalse( khse_analyze_javascript_source( 'eval("unsafe");' )['safeToDefer'] );
-	}
-
-	public function test_css_purge_keeps_classes_used_on_later_elements() {
-		$html = '<div class="first"></div><div class="later"></div>';
-		$css  = '.later{color:red}.unused{display:none}';
-
-		$result = khse_purge_css_conservative( $css, $html, array() );
-
-		$this->assertStringContainsString( '.later{color:red}', $result );
-		$this->assertStringNotContainsString( '.unused', $result );
-	}
-
-	public function test_css_purge_removes_truly_unused_selectors_and_keeps_dynamic_rules() {
-		$html = '<body class="menu open"></body>';
-		$css  = 'body{color:red}.menu:hover{color:blue}.unused{display:none}@font-face{font-family:test;src:url(test.woff2)}';
-
-		$result = khse_purge_css_conservative( $css, $html, array( 'open' ) );
-
-		$this->assertStringContainsString( 'body{color:red}', $result );
-		$this->assertStringContainsString( '.menu:hover', $result );
-		$this->assertStringContainsString( '@font-face', $result );
-		$this->assertStringNotContainsString( '.unused', $result );
-	}
-
-	public function test_css_minifier_preserves_calc_spacing_and_descendant_pseudos() {
-		$result = khse_minify_css( '.menu :hover { width: calc(100% + 10px); }' );
-
-		$this->assertStringContainsString( 'calc(100% + 10px)', $result );
-		$this->assertStringContainsString( '.menu :hover', $result );
-	}
-
 	public function test_font_preconnects_are_added_once() {
 		$html = '<html><head><link href="https://fonts.googleapis.com/css?family=Inter"></head><body></body></html>';
 
@@ -111,42 +54,44 @@ class PageOptimizerTransformsTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'fonts.googleapis.com/css?family=Inter', $result );
 	}
 
-	public function test_local_ucss_applies_to_inline_styles() {
-		$settings            = khse_get_default_page_optimization_settings();
-		$settings['local_ucss'] = 'yes';
-		$html                = '<html><body><div class="used"></div><style>.used{color:red}.unused{color:blue}</style></body></html>';
+	public function test_new_css_and_javascript_defaults_exist() {
+		$settings = khse_get_default_page_optimization_settings();
 
-		$result = khse_apply_local_ucss( $html, $settings );
+		$this->assertArrayHasKey( 'css_enabled', $settings );
+		$this->assertArrayHasKey( 'css_mode', $settings );
+		$this->assertArrayHasKey( 'css_critical_budget', $settings );
+		$this->assertArrayHasKey( 'css_keep_dynamic_states', $settings );
+		$this->assertArrayHasKey( 'css_rollout_percent', $settings );
+		$this->assertArrayHasKey( 'css_safelist', $settings );
+		$this->assertArrayHasKey( 'css_excluded_stylesheets', $settings );
+		$this->assertArrayHasKey( 'javascript_minify', $settings );
+		$this->assertArrayHasKey( 'javascript_defer', $settings );
+		$this->assertArrayHasKey( 'javascript_delay', $settings );
+		$this->assertArrayHasKey( 'javascript_exclusions', $settings );
+		$this->assertArrayHasKey( 'javascript_delay_patterns', $settings );
 
-		$this->assertStringContainsString( '.used', $result );
-		$this->assertStringNotContainsString( '.unused', $result );
+		$this->assertArrayNotHasKey( 'external_ucss', $settings );
+		$this->assertArrayNotHasKey( 'local_ucss', $settings );
+		$this->assertArrayNotHasKey( 'defer_js', $settings );
+		$this->assertArrayNotHasKey( 'js_analysis', $settings );
 	}
 
-	public function test_external_ucss_helpers_rewrite_and_store_assets() {
-		$tag = '<link rel="stylesheet" href="https://cdn.example.com/css/a.css">';
-
-		$this->assertTrue( khse_is_external_ucss_candidate( $tag ) );
-		$this->assertFalse( khse_is_external_ucss_candidate( '<link rel="stylesheet" href="/local.css" integrity="sha384-x">' ) );
-		$this->assertSame(
-			'https://cdn.example.com/img/a.png',
-			khse_resolve_css_url( '../img/a.png', 'https://cdn.example.com/css/main.css' )
+	public function test_old_css_and_javascript_toggles_are_migrated() {
+		update_option(
+			'khse_option_page_optimization',
+			array(
+				'external_ucss' => 'yes',
+				'defer_js'      => 'yes',
+				'js_exclusions' => "custom-script.js\n",
+			)
 		);
 
-		$rewritten = khse_rewrite_css_relative_urls( 'a{background:url(../img/a.png)}', 'https://cdn.example.com/css/main.css' );
+		$settings = khse_get_page_optimization_settings();
 
-		$this->assertStringContainsString( 'url("https://cdn.example.com/img/a.png")', $rewritten );
+		$this->assertSame( 'yes', $settings['css_enabled'] );
+		$this->assertSame( 'yes', $settings['javascript_defer'] );
+		$this->assertStringContainsString( 'custom-script.js', $settings['javascript_exclusions'] );
 
-		$asset = khse_store_optimized_css_asset( '.a{color:red}' );
-
-		$this->assertArrayHasKey( 'file', $asset );
-		$this->assertFileExists( $asset['file'] );
-
-		@unlink( $asset['file'] );
-	}
-
-	public function test_selector_list_is_kept_when_any_selector_is_used() {
-		$html = '<div class="present"></div>';
-
-		$this->assertTrue( khse_css_selector_is_used( '.present, .missing', $html, array() ) );
+		delete_option( 'khse_option_page_optimization' );
 	}
 }

@@ -29,8 +29,9 @@ function khse_get_runtime_module_files() {
 		'optimizer/report.php',
 		'optimizer/dom.php',
 		'optimizer/html.php',
-		'optimizer/css.php',
-		'optimizer/js.php',
+		'optimizer/gt/Settings.php',
+		'optimizer/css-gt.php',
+		'optimizer/js-gt.php',
 		'optimizer/pipeline.php',
 		'preload/cache-preload.php',
 	);

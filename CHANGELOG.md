@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.5.0] - 2026-11-10
+
+### Added
+- Server-side unused-CSS removal adapted from GT Performance 1.3.6. File, inline, and hybrid delivery modes; selector safelist; excluded stylesheets; dynamic-state preservation; staged rollout; and a 3-second per-page time budget.
+- Dependency-aware JavaScript deferral, interaction/5-second delay for selected third-party scripts, and local JavaScript minification with a signed endpoint. Cart, checkout, and payment scripts are always protected.
+- CSS and JavaScript optimizers run during KHSE cache write, so they do not depend on admin-ajax loopback generation.
+
+### Changed
+- Replaced the previous external/local UCSS engine, JS analysis, broad defer pass, and inline CSS minifier with the GT-style CSS/JS optimizers.
+- Existing `external_ucss`, `local_ucss`, `defer_js`, `js_analysis`, and `js_exclusions` settings are migrated to the new CSS/JavaScript switches.
+- Minimum platform is now PHP 8.1 and WordPress 6.2 for the new optimizers. Other optimizations continue to run on older platforms with the CSS/JS optimizers disabled.
+
+### Removed
+- External UCSS generation, local UCSS generation, JS analysis, `bun_path`, `purgecss_path`, and the old inline CSS minifier.
+
 ## [4.4.4] - 2026-11-10
 
 ### Fixed

@@ -194,27 +194,6 @@ smoke_assert( false === strpos( khse_get_nginx_direct_cache_snippet(), '&&' ), '
 smoke_assert( '' !== khse_local_asset_url_to_path( '/inc/cache/cache-core.php' ), 'same-site asset resolution' );
 smoke_assert( '' === khse_local_asset_url_to_path( '/../cache-core.php' ), 'path traversal rejected' );
 
-$analysis = khse_analyze_javascript_source( 'document.write("unsafe");' );
-smoke_assert( empty( $analysis['safeToDefer'] ), 'unsafe JavaScript remains blocking' );
-smoke_assert( ! empty( khse_analyze_javascript_source( 'window.addEventListener("load", boot);' )['safeToDefer'] ), 'safe JavaScript can defer' );
-
-$html = '<html><body class="site"><div class="menu open"></div></body></html>';
-$css  = 'body{color:red}.unused{display:none}.menu:hover{color:blue}@font-face{font-family:test;src:url(test.woff2)}';
-$purged = khse_purge_css_conservative( $css, $html, array( 'open' ) );
-smoke_assert( false === strpos( $purged, '.unused' ), 'unused simple selector removed' );
-smoke_assert( false !== strpos( $purged, 'body{' ), 'used element selector preserved' );
-smoke_assert( false !== strpos( $purged, '.menu:hover' ), 'dynamic selector preserved' );
-smoke_assert( false !== strpos( $purged, '@font-face' ), 'font-face preserved' );
-
-$optimized_inline = khse_apply_local_ucss(
-	'<style>' . $css . '</style>' . $html,
-	array(
-		'ucss_safelist'          => 'open',
-		'local_ucss_max_file_size' => 524288,
-	)
-);
-smoke_assert( false === strpos( $optimized_inline, '.unused' ), 'inline UCSS uses PHP engine' );
-
 $stats_dir = khse_get_stats_dir( 'post' );
 wp_mkdir_p( $stats_dir );
 $old_key  = md5( 'old_prefix|/deleted/' );

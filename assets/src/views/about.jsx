@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.4.4';
+const VERSION = window.khseDashboard?.version || '4.5.0';
 
 const FEATURES = [
 	{
@@ -32,10 +32,10 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'Rebuilding the scheduled queue processes the first run inline.',
-	'Dashboard refreshes and diagnostics downloads process a small due batch.',
-	'The WP-Cron backup now uses a single event.',
-	'The Scheduled card shows the last tick and the 5-URL front-end fallback.'
+	'Unused CSS removal with file, inline, and hybrid delivery modes.',
+	'Dependency-aware JavaScript deferral and interaction-delayed third parties.',
+	'Local JavaScript minification with a signed endpoint.',
+	'Old UCSS and JS analysis settings migrate to the new switches.'
 ];
 
 export default function AboutView({data}) {
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.4.4" description="Highlights from this release.">
+			<Card title="What's new in 4.5.0" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>

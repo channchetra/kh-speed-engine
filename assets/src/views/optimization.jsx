@@ -39,14 +39,14 @@ const PERFORMANCE_TABS = [
 const FEATURE_LABELS = {
 	minify_html: 'HTML minify',
 	remove_comments: 'Comments',
-	minify_inline_css: 'Inline CSS',
 	lazy_media: 'Lazy media',
 	critical_images: 'Critical images',
 	preconnect_fonts: 'Font preconnect',
-	external_ucss: 'External UCSS',
-	local_ucss: 'Local UCSS',
-	defer_js: 'Defer JS',
-	js_analysis: 'JS analysis'
+	css_enabled: 'Unused CSS',
+	css_keep_dynamic_states: 'Dynamic states',
+	javascript_minify: 'JS minify',
+	javascript_defer: 'JS defer',
+	javascript_delay: 'JS delay'
 };
 
 const STATUS_TONES = {
@@ -207,16 +207,16 @@ function PerformanceOverview({optimization, reports}) {
 				<Stat
 					icon={Database}
 					tone="amber"
-					label="Local UCSS saved"
-					value={reports.ucssSavedLabel || '0 B'}
-					detail={`${formatNumber(reports.ucssAppliedPages ?? 0)} pages optimized`}
+					label="CSS optimized"
+					value={formatNumber(reports.cssAppliedPages ?? 0)}
+					detail={`${reports.cssSavedLabel || '0 B'} saved`}
 				/>
 				<Stat
 					icon={Zap}
 					tone="red"
-					label="JS analysis"
-					value={formatNumber(reports.jsAnalyzed ?? 0)}
-					detail={`${formatNumber(reports.jsDeferred ?? 0)} scripts deferred`}
+					label="Scripts deferred"
+					value={formatNumber(reports.jsDeferred ?? 0)}
+					detail={`${formatNumber(reports.jsDelayed ?? 0)} delayed`}
 				/>
 			</div>
 
@@ -242,12 +242,6 @@ function HtmlCard({perf, updatePerformance}) {
 				description="Strip comments while keeping conditional and preserved comments."
 				checked={Boolean(perf.remove_comments)}
 				onChange={(checked) => updatePerformance('remove_comments', checked)}
-			/>
-			<Switch
-				label="Minify inline CSS"
-				description="Compress style blocks inside the page."
-				checked={Boolean(perf.minify_inline_css)}
-				onChange={(checked) => updatePerformance('minify_inline_css', checked)}
 			/>
 		</Card>
 	);
@@ -290,108 +284,120 @@ function MediaCard({perf, updatePerformance}) {
 
 function CssCard({perf, updatePerformance}) {
 	return (
-		<Card title="CSS" description="Remove unused CSS from linked and inline styles.">
+		<Card title="CSS" description="Remove unused CSS and choose how the smaller stylesheet is delivered.">
 			<Switch
-				label="External UCSS generation"
-				description="Generate a smaller stylesheet for eligible same-site CSS files."
-				checked={Boolean(perf.external_ucss)}
-				onChange={(checked) => updatePerformance('external_ucss', checked)}
+				label="Remove unused CSS"
+				description="Keep only the rules each page actually uses."
+				checked={Boolean(perf.css_enabled)}
+				onChange={(checked) => updatePerformance('css_enabled', checked)}
 			/>
+			<Field label="Delivery mode" description="Generated file is safest; hybrid inlines only the critical part." htmlFor="khse-css-mode">
+				<Select
+					id="khse-css-mode"
+					value={perf.css_mode || 'file'}
+					options={[
+						{value: 'file', label: 'Generated file'},
+						{value: 'inline', label: 'Inline CSS'},
+						{value: 'hybrid', label: 'Hybrid: critical inline + file'}
+					]}
+					onChange={(event) => updatePerformance('css_mode', event.target.value)}
+				/>
+			</Field>
+			<Field label="Hybrid inline CSS limit" description="Bytes of critical CSS allowed before falling back to a file." htmlFor="khse-css-critical-budget">
+				<TextInput
+					id="khse-css-critical-budget"
+					type="number"
+					min="2048"
+					max="51200"
+					suffix="bytes"
+					value={perf.css_critical_budget ?? 14336}
+					onChange={(event) => updatePerformance('css_critical_budget', event.target.value)}
+				/>
+			</Field>
 			<Switch
-				label="Local UCSS generation"
-				description="Reduce inline CSS blocks after matching used selectors."
-				checked={Boolean(perf.local_ucss)}
-				onChange={(checked) => updatePerformance('local_ucss', checked)}
+				label="Preserve dynamic states"
+				description="Keep hover, focus, and other interaction styles."
+				checked={Boolean(perf.css_keep_dynamic_states)}
+				onChange={(checked) => updatePerformance('css_keep_dynamic_states', checked)}
 			/>
-			<div className="khse-subgrid">
-				<Field label="External CSS max file size" description="Bytes. Larger files are skipped." htmlFor="khse-external-ucss-max">
-					<TextInput
-						id="khse-external-ucss-max"
-						type="number"
-						min="51200"
-						max="1048576"
-						suffix="bytes"
-						value={perf.external_ucss_max_file_size ?? ''}
-						onChange={(event) => updatePerformance('external_ucss_max_file_size', event.target.value)}
-					/>
-				</Field>
-				<Field label="Local CSS max bytes" description="Bytes. Larger inline blocks are skipped." htmlFor="khse-local-ucss-max">
-					<TextInput
-						id="khse-local-ucss-max"
-						type="number"
-						min="51200"
-						max="1048576"
-						suffix="bytes"
-						value={perf.local_ucss_max_file_size ?? ''}
-						onChange={(event) => updatePerformance('local_ucss_max_file_size', event.target.value)}
-					/>
-				</Field>
-			</div>
+			<Field label="Staged rollout" description="Apply the smaller CSS to a share of pages first." htmlFor="khse-css-rollout">
+				<Select
+					id="khse-css-rollout"
+					value={String(perf.css_rollout_percent ?? 100)}
+					options={[
+						{value: '0', label: '0% - original CSS only'},
+						{value: '10', label: '10%'},
+						{value: '25', label: '25%'},
+						{value: '50', label: '50%'},
+						{value: '100', label: '100% - all eligible pages'}
+					]}
+					onChange={(event) => updatePerformance('css_rollout_percent', event.target.value)}
+				/>
+			</Field>
 		</Card>
 	);
 }
 
 function JavaScriptCard({perf, updatePerformance}) {
 	return (
-		<Card title="JavaScript" description="Defer scripts only when the analyzer says it is safe.">
+		<Card title="JavaScript" description="Smaller scripts, safe deferral, and interaction-delayed third parties.">
 			<Switch
-				label="Defer JavaScript files"
-				description="Add defer to scripts that do not depend on execution order."
-				checked={Boolean(perf.defer_js)}
-				onChange={(checked) => updatePerformance('defer_js', checked)}
+				label="Minify local JavaScript"
+				description="Serve smaller copies of eligible local scripts. No files are written."
+				checked={Boolean(perf.javascript_minify)}
+				onChange={(checked) => updatePerformance('javascript_minify', checked)}
 			/>
 			<Switch
-				label="JS analysis"
-				description="Scan scripts before deferring them."
-				checked={Boolean(perf.js_analysis)}
-				onChange={(checked) => updatePerformance('js_analysis', checked)}
+				label="Defer safe JavaScript"
+				description="Add defer only when dependency order and inline code allow it."
+				checked={Boolean(perf.javascript_defer)}
+				onChange={(checked) => updatePerformance('javascript_defer', checked)}
 			/>
-			<div className="khse-subgrid">
-				<Field label="JS max script bytes" description="Bytes per script file." htmlFor="khse-js-max-script">
-					<TextInput
-						id="khse-js-max-script"
-						type="number"
-						min="16384"
-						max="1048576"
-						suffix="bytes"
-						value={perf.js_analysis_max_script_bytes ?? ''}
-						onChange={(event) => updatePerformance('js_analysis_max_script_bytes', event.target.value)}
-					/>
-				</Field>
-				<Field label="JS max total bytes" description="Bytes across all scripts." htmlFor="khse-js-max-total">
-					<TextInput
-						id="khse-js-max-total"
-						type="number"
-						min="65536"
-						max="4194304"
-						suffix="bytes"
-						value={perf.js_analysis_max_total_bytes ?? ''}
-						onChange={(event) => updatePerformance('js_analysis_max_total_bytes', event.target.value)}
-					/>
-				</Field>
-			</div>
+			<Switch
+				label="Delay selected third-party scripts"
+				description="Load matching scripts on first interaction or after five seconds."
+				checked={Boolean(perf.javascript_delay)}
+				onChange={(checked) => updatePerformance('javascript_delay', checked)}
+			/>
+			<p className="khse-note">Cart, checkout, and payment scripts are always protected.</p>
 		</Card>
 	);
 }
 
 function LimitsDisclosure({perf, updatePerformance}) {
 	return (
-		<Disclosure title="Limits & exclusions" description="Safelists, script exclusions, and optional legacy binary paths.">
+		<Disclosure title="Limits & exclusions" description="Safelists and scripts that must stay untouched.">
 			<div className="khse-grid khse-grid--2">
-				<Field label="UCSS safelist" description="Selectors to keep even when they look unused." htmlFor="khse-ucss-safelist">
+				<Field label="CSS selector safelist" description="One selector fragment or regex per line." htmlFor="khse-css-safelist">
 					<Textarea
-						id="khse-ucss-safelist"
+						id="khse-css-safelist"
 						rows={5}
-						value={perf.ucss_safelist}
-						onChange={(event) => updatePerformance('ucss_safelist', event.target.value)}
+						value={perf.css_safelist}
+						onChange={(event) => updatePerformance('css_safelist', event.target.value)}
 					/>
 				</Field>
-				<Field label="Script defer exclusions" description="One script handle or URL fragment per line." htmlFor="khse-js-exclusions">
+				<Field label="Excluded stylesheets" description="Stylesheet URLs or inline style IDs to leave untouched." htmlFor="khse-css-excluded">
+					<Textarea
+						id="khse-css-excluded"
+						rows={5}
+						value={perf.css_excluded_stylesheets}
+						onChange={(event) => updatePerformance('css_excluded_stylesheets', event.target.value)}
+					/>
+				</Field>
+				<Field label="Never optimize scripts" description="One URL fragment per line." htmlFor="khse-js-exclusions">
 					<Textarea
 						id="khse-js-exclusions"
 						rows={5}
-						value={perf.js_exclusions}
-						onChange={(event) => updatePerformance('js_exclusions', event.target.value)}
+						value={perf.javascript_exclusions}
+						onChange={(event) => updatePerformance('javascript_exclusions', event.target.value)}
+					/>
+				</Field>
+				<Field label="Scripts to delay" description="Only matching third-party scripts are delayed." htmlFor="khse-js-delay-patterns">
+					<Textarea
+						id="khse-js-delay-patterns"
+						rows={5}
+						value={perf.javascript_delay_patterns}
+						onChange={(event) => updatePerformance('javascript_delay_patterns', event.target.value)}
 					/>
 				</Field>
 			</div>

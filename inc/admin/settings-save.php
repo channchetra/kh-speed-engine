@@ -53,14 +53,19 @@ function khse_apply_dashboard_settings( $settings ) {
 				}
 			}
 
-			$current['critical_image_count']        = max( 0, min( 5, absint( isset( $incoming['critical_image_count'] ) ? $incoming['critical_image_count'] : $current['critical_image_count'] ) ) );
-			$current['external_ucss_max_file_size'] = max( 51200, min( 1048576, absint( isset( $incoming['external_ucss_max_file_size'] ) ? $incoming['external_ucss_max_file_size'] : $current['external_ucss_max_file_size'] ) ) );
-			$current['local_ucss_max_file_size']    = max( 51200, min( 1048576, absint( isset( $incoming['local_ucss_max_file_size'] ) ? $incoming['local_ucss_max_file_size'] : $current['local_ucss_max_file_size'] ) ) );
-			$current['js_analysis_max_script_bytes'] = max( 16384, min( 1048576, absint( isset( $incoming['js_analysis_max_script_bytes'] ) ? $incoming['js_analysis_max_script_bytes'] : $current['js_analysis_max_script_bytes'] ) ) );
-			$current['js_analysis_max_total_bytes']  = max( 65536, min( 4194304, absint( isset( $incoming['js_analysis_max_total_bytes'] ) ? $incoming['js_analysis_max_total_bytes'] : $current['js_analysis_max_total_bytes'] ) ) );
-			$current['ucss_safelist']                = sanitize_textarea_field( isset( $incoming['ucss_safelist'] ) ? $incoming['ucss_safelist'] : $current['ucss_safelist'] );
-			$current['media_exclusions']             = sanitize_textarea_field( isset( $incoming['media_exclusions'] ) ? $incoming['media_exclusions'] : $current['media_exclusions'] );
-			$current['js_exclusions']                = sanitize_textarea_field( isset( $incoming['js_exclusions'] ) ? $incoming['js_exclusions'] : $current['js_exclusions'] );
+			$current['critical_image_count']      = max( 0, min( 5, absint( isset( $incoming['critical_image_count'] ) ? $incoming['critical_image_count'] : $current['critical_image_count'] ) ) );
+			$current['css_mode']                  = in_array( (string) ( $incoming['css_mode'] ?? $current['css_mode'] ), array( 'file', 'inline', 'hybrid' ), true ) ? (string) ( $incoming['css_mode'] ?? $current['css_mode'] ) : 'file';
+			$current['css_rollout_percent']       = in_array( (int) ( $incoming['css_rollout_percent'] ?? $current['css_rollout_percent'] ), array( 0, 10, 25, 50, 100 ), true ) ? (int) ( $incoming['css_rollout_percent'] ?? $current['css_rollout_percent'] ) : 100;
+			$current['css_critical_budget']       = max( 2048, min( 51200, absint( isset( $incoming['css_critical_budget'] ) ? $incoming['css_critical_budget'] : $current['css_critical_budget'] ) ) );
+			$current['css_safelist']              = sanitize_textarea_field( isset( $incoming['css_safelist'] ) ? $incoming['css_safelist'] : $current['css_safelist'] );
+			$current['css_excluded_stylesheets']  = sanitize_textarea_field( isset( $incoming['css_excluded_stylesheets'] ) ? $incoming['css_excluded_stylesheets'] : $current['css_excluded_stylesheets'] );
+			$current['javascript_exclusions']     = sanitize_textarea_field( isset( $incoming['javascript_exclusions'] ) ? $incoming['javascript_exclusions'] : $current['javascript_exclusions'] );
+			$current['javascript_delay_patterns'] = sanitize_textarea_field( isset( $incoming['javascript_delay_patterns'] ) ? $incoming['javascript_delay_patterns'] : $current['javascript_delay_patterns'] );
+			$current['media_exclusions']          = sanitize_textarea_field( isset( $incoming['media_exclusions'] ) ? $incoming['media_exclusions'] : $current['media_exclusions'] );
+
+			foreach ( array( 'minify_inline_css', 'external_ucss', 'local_ucss', 'defer_js', 'js_analysis', 'external_ucss_max_file_size', 'local_ucss_max_file_size', 'js_analysis_max_script_bytes', 'js_analysis_max_total_bytes', 'bun_path', 'purgecss_path', 'ucss_safelist', 'js_exclusions' ) as $legacy_key ) {
+				unset( $current[ $legacy_key ] );
+			}
 
 			update_option( 'khse_option_page_optimization', $current );
 		}

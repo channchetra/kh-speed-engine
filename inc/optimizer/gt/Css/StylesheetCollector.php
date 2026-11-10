@@ -1,0 +1,349 @@
+<?php
+/**
+ * Same-origin stylesheet collection.
+ *
+ * Adapted from GT Performance 1.3.6 (GPL-2.0-or-later).
+ *
+ * @package KH Speed Engine
+ * @license GPLv3 (or later)
+ */
+
+declare(strict_types=1);
+
+namespace KHSE\Optimization\Css;
+
+if ( ! defined( 'KHSE_INC' ) ) {
+	die;
+}
+
+use KHSE\Optimization\Settings;
+
+final class StylesheetCollector {
+	/**
+	 * Attribute stamped on every candidate before the document is parsed.
+	 *
+	 * The generated CSS replaces these tags, and the replacement happens on the HTML
+	 * string. Serialising the document instead would lowercase every camelCase name
+	 * in inline SVG and entity-encode all non-ASCII, so the DOM here is only ever
+	 * read from.
+	 */
+	public const MARKER = 'data-khse-css';
+
+	/**
+	 * Attribute marking markup this optimizer generated, so a second pass never
+	 * reads its own output back into a build.
+	 */
+	public const OWNED_ATTRIBUTE = 'data-khse-optimized-css';
+
+	/** @var list<string>|null Allowed stylesheet hosts, resolved once per request. */
+	private ?array $hosts = null;
+
+	/**
+	 * @param list<string> $exclusions Excluded URL or inline style ID fragments.
+	 * @return array{stylesheets:list<Stylesheet>,markers:list<string>,runs:list<list<string>>}
+	 */
+	public function collect( \DOMDocument $document, array $exclusions = array() ): array {
+		$xpath       = new \DOMXPath( $document );
+		$stylesheets = array();
+		$nodes       = array();
+
+		// A stylesheet's position is part of the cascade. Query links and inline
+		// styles together so consolidating them never moves every inline block
+		// behind every external file.
+		$nodesInOrder = $xpath->query(
+			// An exact rel only. `rel="alternate stylesheet"` is a theme the visitor has
+			// not chosen and `disabled` is off by definition; both were being collected,
+			// merged into the active CSS and then removed from the page, which turned an
+			// unselected colour scheme into the live one.
+			'//link[not(ancestor::noscript)][translate(normalize-space(@rel),"STYLEH","styleh")="stylesheet"][@href][not(@disabled)][not(@' . self::OWNED_ATTRIBUTE . ')]'
+			. ' | //style[not(ancestor::noscript)][not(@' . self::OWNED_ATTRIBUTE . ')][not(@disabled)]'
+		);
+		if ( false !== $nodesInOrder ) {
+			foreach ( $nodesInOrder as $node ) {
+				if ( ! $node instanceof \DOMElement ) {
+					continue;
+				}
+
+				if ( 'style' === strtolower( $node->tagName ) ) {
+					if ( '' === trim( $node->textContent ) ) {
+						continue;
+					}
+					$styleId = $node->getAttribute( 'id' );
+					if ( '' !== $styleId && $this->excluded( $styleId, $exclusions ) ) {
+						continue;
+					}
+					$media         = $node->getAttribute( 'media' );
+					$stylesheets[] = new Stylesheet( 'inline', $node->textContent, '' === $media ? 'all' : $media );
+					$nodes[]       = $node;
+					continue;
+				}
+
+				if ( ! $this->reads( $node->getAttribute( 'href' ), $exclusions ) ) {
+					continue;
+				}
+
+				$url = $this->absoluteUrl( html_entity_decode( $node->getAttribute( 'href' ), ENT_QUOTES | ENT_HTML5 ) );
+				$css = $this->fetch( $url );
+				if ( is_wp_error( $css ) ) {
+					// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal exception; never rendered.
+					throw new \RuntimeException( $css->get_error_message() );
+				}
+
+				$media         = $this->effectiveMedia( $node );
+				$stylesheets[] = new Stylesheet(
+					$url,
+					$this->rebaseUrls( $css, $url ),
+					'' === $media ? 'all' : $media
+				);
+				$nodes[]       = $node;
+			}
+		}
+
+		$markers = array();
+		foreach ( $nodes as $node ) {
+			$marker = $node->getAttribute( self::MARKER );
+			if ( '' !== $marker ) {
+				$markers[] = $marker;
+			}
+		}
+
+		return array(
+			'stylesheets' => $stylesheets,
+			'markers'     => $markers,
+			'runs'        => $this->runs( $xpath, $markers ),
+		);
+	}
+
+	/**
+	 * Consolidated stylesheets grouped so no stylesheet left in place sits inside a group.
+	 *
+	 * Each group is replaced where it stood. When all of them went in one place, at
+	 * the end of <head>, WordPress's global styles moved behind a theme's excluded
+	 * stylesheets and overrode its fonts and link colours.
+	 *
+	 * @param list<string> $markers Stamps of the consolidated stylesheets.
+	 * @return list<list<string>>
+	 */
+	private function runs( \DOMXPath $xpath, array $markers ): array {
+		$consolidated = array_flip( $markers );
+		$runs         = array();
+		$run          = array();
+		$stamped      = $xpath->query( '//*[@' . self::MARKER . ']' );
+
+		foreach ( false === $stamped ? array() : $stamped as $node ) {
+			if ( ! $node instanceof \DOMElement ) {
+				continue;
+			}
+			$marker = $node->getAttribute( self::MARKER );
+			if ( isset( $consolidated[ $marker ] ) ) {
+				$run[] = $marker;
+			} elseif ( $run && $this->affectsCascade( $node ) ) {
+				$runs[] = $run;
+				$run    = array();
+			}
+		}
+		if ( $run ) {
+			$runs[] = $run;
+		}
+
+		return $runs;
+	}
+
+	/**
+	 * Whether a stylesheet left in place applies to the page, so its position counts.
+	 */
+	private function affectsCascade( \DOMElement $node ): bool {
+		if ( $node->hasAttribute( 'disabled' ) ) {
+			return false;
+		}
+		for ( $parent = $node->parentNode; $parent instanceof \DOMElement; $parent = $parent->parentNode ) {
+			if ( 'noscript' === strtolower( $parent->tagName ) ) {
+				return false;
+			}
+		}
+
+		return 'style' === strtolower( $node->tagName )
+			? '' !== trim( $node->textContent )
+			: 'stylesheet' === strtolower( (string) preg_replace( '/\s+/', ' ', trim( $node->getAttribute( 'rel' ) ) ) );
+	}
+
+	/**
+	 * Whether a stylesheet link with this href is read into a build, rather than
+	 * left in place.
+	 *
+	 * @param string       $href       The link's href attribute value.
+	 * @param list<string> $exclusions Excluded URL or inline style ID fragments.
+	 */
+	private function reads( string $href, array $exclusions = array() ): bool {
+		$url = $this->absoluteUrl( html_entity_decode( $href, ENT_QUOTES | ENT_HTML5 ) );
+		if ( '' === $url || $this->excluded( $url, $exclusions ) ) {
+			return false;
+		}
+
+		$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$this->hosts ??= $this->allowedHosts( strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) ) );
+
+		return '' === $host || in_array( $host, $this->hosts, true );
+	}
+
+	/**
+	 * Hosts whose stylesheets belong to this site.
+	 *
+	 * Matching the site host alone means the engine silently does nothing on any
+	 * site that serves its assets from a CDN subdomain.
+	 *
+	 * @return list<string>
+	 */
+	private function allowedHosts( string $siteHost ): array {
+		$hosts = array( $siteHost );
+
+		/**
+		 * Hosts the unused-CSS engine may read stylesheets from.
+		 *
+		 * @param list<string> $hosts    Lowercase hostnames.
+		 * @param string       $siteHost This site's hostname.
+		 */
+		$hosts = array_map( 'strval', (array) apply_filters( 'khse_css_allowed_hosts', $hosts, $siteHost ) );
+
+		return array_values( array_unique( array_filter( array_map( 'strtolower', $hosts ) ) ) );
+	}
+
+	private function effectiveMedia( \DOMElement $link ): string {
+		$media  = trim( $link->getAttribute( 'media' ) );
+		$onload = $link->getAttribute( 'onload' );
+
+		// Async-CSS loaders commonly set media="print" to avoid blocking and
+		// promote the stylesheet to all media after it loads. Preserve the
+		// browser's effective media rather than turning that CSS into print-only
+		// rules inside the generated artifact.
+		if (
+			'print' === strtolower( $media )
+			&& preg_match( '/\.media\s*=\s*([\'"])all\1/i', $onload )
+		) {
+			return 'all';
+		}
+
+		return '' === $media ? 'all' : $media;
+	}
+
+	private function absoluteUrl( string $url ): string {
+		if ( str_starts_with( $url, 'data:' ) ) {
+			return '';
+		}
+		if ( str_starts_with( $url, '//' ) ) {
+			return ( is_ssl() ? 'https:' : 'http:' ) . $url;
+		}
+		if ( preg_match( '#^https?://#i', $url ) ) {
+			return esc_url_raw( $url );
+		}
+
+		return esc_url_raw( home_url( '/' . ltrim( $url, '/' ) ) );
+	}
+
+	/**
+	 * @return string|\WP_Error
+	 */
+	private function fetch( string $url ): string|\WP_Error {
+		$local = $this->localPath( $url );
+		if ( null !== $local && is_file( $local ) && is_readable( $local ) ) {
+			$size = filesize( $local );
+			if ( is_int( $size ) && $size > 2 * MB_IN_BYTES ) {
+				return new \WP_Error( 'khse_css_size', __( 'A stylesheet exceeded the 2 MB safety limit.', 'kh-speed-engine' ) );
+			}
+			// Validated local CSS path; only the branch below makes an HTTP request.
+			$contents = file_get_contents( $local );
+
+			return is_string( $contents ) ? $contents : new \WP_Error( 'khse_css_read', __( 'A local stylesheet could not be read.', 'kh-speed-engine' ) );
+		}
+
+		$response = wp_safe_remote_get(
+			$url,
+			array(
+				'timeout'             => 8,
+				'redirection'         => 2,
+				'limit_response_size' => 2 * MB_IN_BYTES,
+				'user-agent'          => 'KH-Speed-Engine-CSS/' . ( defined( 'KHSE_PLUGIN_VERSION' ) ? (string) KHSE_PLUGIN_VERSION : '1.0' ),
+			)
+		);
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+		if ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			return new \WP_Error( 'khse_css_http', __( 'A stylesheet returned a non-200 response.', 'kh-speed-engine' ) );
+		}
+
+		$contentType = strtolower( wp_remote_retrieve_header( $response, 'content-type' ) );
+		if ( '' !== $contentType && ! str_contains( $contentType, 'text/css' ) ) {
+			return new \WP_Error( 'khse_css_type', __( 'A stylesheet returned an unexpected content type.', 'kh-speed-engine' ) );
+		}
+
+		return wp_remote_retrieve_body( $response );
+	}
+
+	private function localPath( string $url ): ?string {
+		$contentUrl = content_url( '/' );
+		if ( str_starts_with( $url, $contentUrl ) ) {
+			$relative = ltrim( substr( $url, strlen( $contentUrl ) ), '/' );
+			$relative = (string) wp_parse_url( $relative, PHP_URL_PATH );
+			$path     = realpath( WP_CONTENT_DIR . '/' . $relative );
+			$root     = realpath( WP_CONTENT_DIR );
+
+			if ( is_string( $path ) && is_string( $root ) && str_starts_with( $path, $root . DIRECTORY_SEPARATOR ) ) {
+				return $path;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * @param list<string> $exclusions URL or inline style ID fragments.
+	 */
+	private function excluded( string $url, array $exclusions ): bool {
+		foreach ( $exclusions as $exclusion ) {
+			if ( '' !== $exclusion && str_contains( $url, $exclusion ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function rebaseUrls( string $css, string $sourceUrl ): string {
+		$base   = trailingslashit( dirname( $sourceUrl ) );
+		$origin = $this->origin( $sourceUrl );
+
+		return preg_replace_callback(
+			"/url\(\s*([\"']?)(?!data:|https?:|\/\/|#)([^\"')]+)\1\s*\)/i",
+			static function ( array $matches ) use ( $base, $origin ): string {
+				$reference = trim( $matches[2] );
+				if ( '' === $reference ) {
+					return $matches[0];
+				}
+
+				// A root-relative reference resolves against the site origin; only a
+				// document-relative reference is joined to the stylesheet's directory.
+				$absolute = str_starts_with( $reference, '/' )
+					? $origin . $reference
+					: $base . ltrim( $reference, '/' );
+
+				return 'url("' . esc_url_raw( $absolute ) . '")';
+			},
+			$css
+		) ?? $css;
+	}
+
+	private function origin( string $url ): string {
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return '';
+		}
+
+		$origin = $parts['scheme'] . '://' . $parts['host'];
+		if ( isset( $parts['port'] ) ) {
+			$origin .= ':' . (int) $parts['port'];
+		}
+
+		return $origin;
+	}
+}

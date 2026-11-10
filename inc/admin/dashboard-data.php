@@ -228,12 +228,10 @@ function khse_dashboard_get_optimization_report_summary() {
 	$total_reports   = khse_count_page_optimization_reports();
 	$applied_pages  = 0;
 	$saved_bytes    = 0;
-	$ucss_saved     = 0;
-	$ucss_pages     = 0;
-	$external_ucss_saved = 0;
-	$external_ucss_pages = 0;
-	$js_analyzed    = 0;
+	$css_saved      = 0;
+	$css_pages      = 0;
 	$js_deferred    = 0;
+	$js_delayed     = 0;
 
 	foreach ( $summary_reports as $report ) {
 		if ( 'applied' === $report['overallStatus'] ) {
@@ -242,25 +240,20 @@ function khse_dashboard_get_optimization_report_summary() {
 
 		$saved_bytes += isset( $report['savedBytes'] ) ? (int) $report['savedBytes'] : 0;
 
-		if ( ! empty( $report['features']['local_ucss']['metrics'] ) ) {
-			$ucss_saved += isset( $report['features']['local_ucss']['metrics']['savedBytes'] ) ? (int) $report['features']['local_ucss']['metrics']['savedBytes'] : 0;
+		if ( ! empty( $report['features']['css_enabled']['metrics'] ) ) {
+			$css_saved += isset( $report['features']['css_enabled']['metrics']['savedBytes'] ) ? (int) $report['features']['css_enabled']['metrics']['savedBytes'] : 0;
 
-			if ( 'applied' === $report['features']['local_ucss']['status'] ) {
-				$ucss_pages++;
+			if ( 'applied' === $report['features']['css_enabled']['status'] ) {
+				$css_pages++;
 			}
 		}
 
-		if ( ! empty( $report['features']['external_ucss']['metrics'] ) ) {
-			$external_ucss_saved += isset( $report['features']['external_ucss']['metrics']['savedBytes'] ) ? (int) $report['features']['external_ucss']['metrics']['savedBytes'] : 0;
-
-			if ( 'applied' === $report['features']['external_ucss']['status'] ) {
-				$external_ucss_pages++;
-			}
+		if ( ! empty( $report['features']['javascript_defer']['metrics'] ) ) {
+			$js_deferred += isset( $report['features']['javascript_defer']['metrics']['deferred'] ) ? (int) $report['features']['javascript_defer']['metrics']['deferred'] : 0;
 		}
 
-		if ( ! empty( $report['features']['js_analysis']['metrics'] ) ) {
-			$js_analyzed += isset( $report['features']['js_analysis']['metrics']['analyzed'] ) ? (int) $report['features']['js_analysis']['metrics']['analyzed'] : 0;
-			$js_deferred += isset( $report['features']['js_analysis']['metrics']['deferred'] ) ? (int) $report['features']['js_analysis']['metrics']['deferred'] : 0;
+		if ( ! empty( $report['features']['javascript_delay']['metrics'] ) ) {
+			$js_delayed += isset( $report['features']['javascript_delay']['metrics']['delayed'] ) ? (int) $report['features']['javascript_delay']['metrics']['delayed'] : 0;
 		}
 	}
 
@@ -274,14 +267,11 @@ function khse_dashboard_get_optimization_report_summary() {
 		'appliedPages'  => $applied_pages,
 		'savedBytes'    => $saved_bytes,
 		'savedLabel'    => size_format( $saved_bytes, 2 ),
-		'ucssSavedBytes' => $ucss_saved,
-		'ucssSavedLabel' => size_format( $ucss_saved, 2 ),
-		'ucssAppliedPages' => $ucss_pages,
-		'externalUcssSavedBytes' => $external_ucss_saved,
-		'externalUcssSavedLabel' => size_format( $external_ucss_saved, 2 ),
-		'externalUcssAppliedPages' => $external_ucss_pages,
-		'jsAnalyzed'    => $js_analyzed,
+		'cssSavedBytes' => $css_saved,
+		'cssSavedLabel' => size_format( $css_saved, 2 ),
+		'cssAppliedPages' => $css_pages,
 		'jsDeferred'    => $js_deferred,
+		'jsDelayed'     => $js_delayed,
 	);
 }
 

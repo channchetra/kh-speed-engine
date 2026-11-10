@@ -80,8 +80,6 @@ function khse_build_page_optimization_report( $before, $after, $settings, $uri =
 	$critical_after  = khse_count_html_matches( '/\bfetchpriority\s*=\s*(["\'])high\1/i', $after );
 	$fonts_before    = khse_count_html_matches( '/<link\b[^>]*\brel\s*=\s*(["\'])(?:preconnect|dns-prefetch)\1[^>]*fonts\.(?:googleapis|gstatic)\.com/i', $before );
 	$fonts_after     = khse_count_html_matches( '/<link\b[^>]*\brel\s*=\s*(["\'])(?:preconnect|dns-prefetch)\1[^>]*fonts\.(?:googleapis|gstatic)\.com/i', $after );
-	$defer_before    = khse_count_html_matches( '/<script\b[^>]*\bdefer\b/i', $before );
-	$defer_after     = khse_count_html_matches( '/<script\b[^>]*\bdefer\b/i', $after );
 	$features        = array();
 	$runtime         = khse_get_page_optimization_runtime();
 	$metric_features = array(
@@ -101,8 +99,8 @@ function khse_build_page_optimization_report( $before, $after, $settings, $uri =
 			'format'  => 'count',
 			'label'   => __( '%1$s comments before, %2$s after.', 'kh-speed-engine' ),
 		),
-		'minify_inline_css'  => array(
-			'setting' => 'minify_inline_css',
+		'css_enabled'        => array(
+			'setting' => 'css_enabled',
 			'before'  => $styles_before,
 			'after'   => $styles_after,
 			'compare' => 'lt',
@@ -133,14 +131,6 @@ function khse_build_page_optimization_report( $before, $after, $settings, $uri =
 			'format'  => 'count',
 			'label'   => __( '%1$s font hints before, %2$s after.', 'kh-speed-engine' ),
 		),
-		'defer_js'           => array(
-			'setting' => 'defer_js',
-			'before'  => $defer_before,
-			'after'   => $defer_after,
-			'compare' => 'gt',
-			'format'  => 'count',
-			'label'   => __( '%1$s deferred scripts before, %2$s after.', 'kh-speed-engine' ),
-		),
 	);
 
 	foreach ( $metric_features as $key => $descriptor ) {
@@ -158,25 +148,32 @@ function khse_build_page_optimization_report( $before, $after, $settings, $uri =
 			? $descriptor['after'] < $descriptor['before']
 			: $descriptor['after'] > $descriptor['before'];
 
+		$metrics = array();
+
+		if ( 'css_enabled' === $key ) {
+			$metrics['savedBytes'] = max( 0, (int) $descriptor['before'] - (int) $descriptor['after'] );
+		}
+
 		$features[ $key ] = khse_build_page_optimization_feature_report(
 			$enabled,
 			! $enabled ? 'disabled' : ( $changed ? 'applied' : 'no_change' ),
-			! $enabled ? __( 'Disabled.', 'kh-speed-engine' ) : sprintf( $descriptor['label'], $before_label, $after_label )
+			! $enabled ? __( 'Disabled.', 'kh-speed-engine' ) : sprintf( $descriptor['label'], $before_label, $after_label ),
+			$metrics
 		);
 	}
 
 	$runtime_features = array(
-		'external_ucss' => array(
-			'setting' => 'external_ucss',
-			'missing' => __( 'External UCSS engine did not return a result.', 'kh-speed-engine' ),
+		'javascript_minify' => array(
+			'setting' => 'javascript_minify',
+			'missing' => __( 'JavaScript minifier did not return a result.', 'kh-speed-engine' ),
 		),
-		'local_ucss'    => array(
-			'setting' => 'local_ucss',
-			'missing' => __( 'Local UCSS engine did not return a result.', 'kh-speed-engine' ),
+		'javascript_defer'  => array(
+			'setting' => 'javascript_defer',
+			'missing' => __( 'JavaScript deferral did not return a result.', 'kh-speed-engine' ),
 		),
-		'js_analysis'   => array(
-			'setting' => 'js_analysis',
-			'missing' => __( 'JS analysis engine did not return a result.', 'kh-speed-engine' ),
+		'javascript_delay'  => array(
+			'setting' => 'javascript_delay',
+			'missing' => __( 'JavaScript delay did not return a result.', 'kh-speed-engine' ),
 		),
 	);
 

@@ -20,14 +20,14 @@ function khse_get_page_optimization_toggle_keys() {
 		'status',
 		'minify_html',
 		'remove_comments',
-		'minify_inline_css',
 		'lazy_media',
 		'critical_images',
 		'preconnect_fonts',
-		'defer_js',
-		'external_ucss',
-		'local_ucss',
-		'js_analysis',
+		'css_enabled',
+		'css_keep_dynamic_states',
+		'javascript_minify',
+		'javascript_defer',
+		'javascript_delay',
 	);
 }
 
@@ -40,35 +40,48 @@ function khse_get_page_optimization_feature_keys() {
 	return array_values( array_diff( khse_get_page_optimization_toggle_keys(), array( 'status' ) ) );
 }
 
+/**
+ * Whether the GT-style optimizers can run on this platform.
+ *
+ * @return bool
+ */
+function khse_gt_optimization_available() {
+	return version_compare( PHP_VERSION, '8.1.0', '>=' )
+		&& version_compare( (string) get_bloginfo( 'version' ), '6.2', '>=' )
+		&& class_exists( 'DOMDocument' );
+}
+
 function khse_get_default_page_optimization_settings() {
 	return array(
-		'status'               => 'no',
-		'minify_html'          => 'yes',
-		'remove_comments'      => 'yes',
-		'minify_inline_css'    => 'yes',
-		'lazy_media'           => 'yes',
-		'critical_images'      => 'yes',
-		'preconnect_fonts'     => 'yes',
-		'defer_js'             => 'no',
-		'external_ucss'        => 'no',
-		'local_ucss'           => 'no',
-		'js_analysis'          => 'no',
-		'bun_path'             => '',
-		'purgecss_path'        => '',
-		'ucss_safelist'        => implode(
+		'status'                    => 'no',
+		'minify_html'               => 'yes',
+		'remove_comments'           => 'yes',
+		'lazy_media'                => 'yes',
+		'critical_images'           => 'yes',
+		'preconnect_fonts'          => 'yes',
+		'css_enabled'               => 'no',
+		'css_mode'                  => 'file',
+		'css_critical_budget'       => 14336,
+		'css_keep_dynamic_states'   => 'yes',
+		'css_rollout_percent'       => 100,
+		'css_safelist'              => implode(
 			"\n",
 			array_merge(
 				khse_get_protected_ucss_safelist(),
 				array( 'wp-block', 'alignwide', 'alignfull' )
 			)
 		),
-		'critical_image_count' => 1,
-		'external_ucss_max_file_size' => 307200,
-		'local_ucss_max_file_size' => 524288,
-		'js_analysis_max_script_bytes' => 262144,
-		'js_analysis_max_total_bytes' => 1048576,
-		'media_exclusions'     => "logo\navatar\ncaptcha",
-		'js_exclusions'        => implode( "\n", khse_get_protected_js_exclusions() ),
+		'css_excluded_stylesheets'  => '',
+		'javascript_minify'         => 'no',
+		'javascript_defer'          => 'no',
+		'javascript_delay'          => 'no',
+		'javascript_exclusions'     => implode( "\n", khse_get_protected_js_exclusions() ),
+		'javascript_delay_patterns' => implode(
+			"\n",
+			array( 'clarity.ms', 'connect.facebook.net', 'google-analytics.com', 'googletagmanager.com', 'hotjar.com' )
+		),
+		'critical_image_count'      => 1,
+		'media_exclusions'          => "logo\navatar\ncaptcha",
 	);
 }
 
@@ -78,18 +91,33 @@ function khse_get_default_page_optimization_settings() {
  * @return array
  */
 function khse_get_page_optimization_settings() {
-	$settings = (array) get_option( 'khse_option_page_optimization', array() );
-	$settings = array_merge( khse_get_default_page_optimization_settings(), $settings );
+	$stored   = (array) get_option( 'khse_option_page_optimization', array() );
+	$defaults = khse_get_default_page_optimization_settings();
+	$settings = array_merge( $defaults, $stored );
+
+	// Migrate the 4.4.x CSS/JS toggles to the GT-style switches.
+	if ( ! array_key_exists( 'css_enabled', $stored ) && ( 'yes' === ( $stored['external_ucss'] ?? 'no' ) || 'yes' === ( $stored['local_ucss'] ?? 'no' ) ) ) {
+		$settings['css_enabled'] = 'yes';
+	}
+
+	if ( ! array_key_exists( 'javascript_defer', $stored ) && ( 'yes' === ( $stored['defer_js'] ?? 'no' ) || 'yes' === ( $stored['js_analysis'] ?? 'no' ) ) ) {
+		$settings['javascript_defer'] = 'yes';
+	}
+
+	if ( ! array_key_exists( 'javascript_exclusions', $stored ) && ! empty( $stored['js_exclusions'] ) ) {
+		$settings['javascript_exclusions'] = (string) $stored['js_exclusions'];
+	}
 
 	$settings['critical_image_count'] = max( 0, min( 5, (int) $settings['critical_image_count'] ) );
-	$settings['bun_path']             = trim( (string) $settings['bun_path'] );
-	$settings['purgecss_path']        = trim( (string) $settings['purgecss_path'] );
-	$settings['external_ucss_max_file_size'] = max( 51200, min( 1048576, (int) $settings['external_ucss_max_file_size'] ) );
-	$settings['local_ucss_max_file_size'] = max( 51200, min( 1048576, (int) $settings['local_ucss_max_file_size'] ) );
-	$settings['js_analysis_max_script_bytes'] = max( 16384, min( 1048576, (int) $settings['js_analysis_max_script_bytes'] ) );
-	$settings['js_analysis_max_total_bytes'] = max( 65536, min( 4194304, (int) $settings['js_analysis_max_total_bytes'] ) );
-	$settings['ucss_safelist']        = khse_merge_textarea_lines( $settings['ucss_safelist'], khse_get_protected_ucss_safelist() );
-	$settings['js_exclusions']        = khse_merge_textarea_lines( $settings['js_exclusions'], khse_get_protected_js_exclusions() );
+	$settings['css_mode']             = in_array( (string) $settings['css_mode'], array( 'file', 'inline', 'hybrid' ), true ) ? (string) $settings['css_mode'] : 'file';
+	$settings['css_critical_budget']  = max( 2048, min( 51200, (int) $settings['css_critical_budget'] ) );
+	$settings['css_rollout_percent']  = in_array( (int) $settings['css_rollout_percent'], array( 0, 10, 25, 50, 100 ), true ) ? (int) $settings['css_rollout_percent'] : 100;
+	$settings['css_safelist']         = khse_merge_textarea_lines( (string) $settings['css_safelist'], khse_get_protected_ucss_safelist() );
+	$settings['javascript_exclusions'] = khse_merge_textarea_lines( (string) $settings['javascript_exclusions'], khse_get_protected_js_exclusions() );
+	$settings['javascript_delay_patterns'] = khse_merge_textarea_lines(
+		(string) $settings['javascript_delay_patterns'],
+		array( 'clarity.ms', 'connect.facebook.net', 'google-analytics.com', 'googletagmanager.com', 'hotjar.com' )
+	);
 
 	return $settings;
 }
