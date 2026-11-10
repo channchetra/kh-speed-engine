@@ -656,6 +656,7 @@ function khse_ajax_dashboard_debug_toggle_callback() {
 				? __( 'Debug mode enabled. New preload attempts will be recorded.', 'kh-speed-engine' )
 				: __( 'Debug mode disabled. Existing records were kept until you clear them.', 'kh-speed-engine' ),
 			'debug'   => khse_get_system_debug_data(),
+			'status'  => khse_dashboard_get_status_data(),
 		)
 	);
 }
@@ -674,6 +675,7 @@ function khse_ajax_dashboard_debug_clear_callback() {
 		array(
 			'message' => __( 'Debug records cleared.', 'kh-speed-engine' ),
 			'debug'   => khse_get_system_debug_data(),
+			'status'  => khse_dashboard_get_status_data(),
 		)
 	);
 }
@@ -693,6 +695,7 @@ function khse_ajax_dashboard_debug_production_callback() {
 		array(
 			'message' => __( 'Debug mode disabled and debug records cleared. Production mode is ready.', 'kh-speed-engine' ),
 			'debug'   => khse_get_system_debug_data(),
+			'status'  => khse_dashboard_get_status_data(),
 		)
 	);
 }

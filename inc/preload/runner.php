@@ -408,6 +408,7 @@ function khse_preload_cache( $limit = null ) {
 		update_option( 'khse_last_homepage_priority_preload_time', time() );
 		update_option( 'khse_preload_queue_started_time', time() );
 		update_option( 'khse_preload_queue_finished_time', 0 );
+		update_option( 'khse_preload_queue_last_mode', khse_preload_should_block( home_url( '/' ) ) ? 'blocking' : 'non-blocking', false );
 
 		if ( function_exists( 'khse_preload_queue_store_available' ) && khse_preload_queue_store_available() ) {
 			$queued = khse_preload_queue_replace_urls( $urls );

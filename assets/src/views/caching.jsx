@@ -639,8 +639,26 @@ function PreloadQueue({status}) {
 	const processed = Number(status.queueProcessed) || 0;
 	const remaining = Number(status.queueRemaining) || 0;
 	const progress = Math.max(0, Math.min(100, Number(status.progress) || 0));
+	const lastRun = status.queueLastRun || {};
+	const completed = status.queueState === 'completed' && remaining === 0;
+	const nonBlocking = lastRun.mode === 'non-blocking';
 
 	if (total === 0) {
+		if (Number(lastRun.total) > 0) {
+			return (
+				<div className="khse-queue">
+					<div className="khse-queue__number">
+						<strong>{formatNumber(Number(lastRun.success) || 0)}</strong>
+						<span>{formatNumber(Number(lastRun.total) || 0)} pages {nonBlocking ? 'dispatched' : 'preloaded'} in the last run</span>
+					</div>
+					<div className="khse-queue__bar">
+						<Progress value={100} tone="green" label="Last preload run" />
+						<span>Completed · {Number(lastRun.failed) > 0 ? `${formatNumber(lastRun.failed)} failed` : 'no failures'}</span>
+					</div>
+				</div>
+			);
+		}
+
 		return (
 			<EmptyState
 				icon={Zap}
@@ -653,12 +671,20 @@ function PreloadQueue({status}) {
 	return (
 		<div className="khse-queue">
 			<div className="khse-queue__number">
-				<strong>{formatNumber(remaining)}</strong>
-				<span>remaining of {formatNumber(total)} queued</span>
+				<strong>{formatNumber(completed ? (Number(lastRun.success) || processed) : remaining)}</strong>
+				<span>
+					{completed
+						? `${formatNumber(total)} pages ${nonBlocking ? 'dispatched' : 'preloaded'} in the last run`
+						: `remaining of ${formatNumber(total)} queued`}
+				</span>
 			</div>
 			<div className="khse-queue__bar">
-				<Progress value={progress} tone="cyan" label="Preload queue progress" />
-				<span>{formatNumber(processed)} processed · {Math.round(progress)}%</span>
+				<Progress value={completed ? 100 : progress} tone={completed ? 'green' : 'cyan'} label="Preload queue progress" />
+				<span>
+					{completed
+						? `Completed · ${Number(lastRun.failed) > 0 ? `${formatNumber(lastRun.failed)} failed` : 'no failures'}`
+						: `${formatNumber(processed)} processed · ${Math.round(progress)}%`}
+				</span>
 			</div>
 		</div>
 	);
@@ -677,6 +703,19 @@ export function PreloadView({data, settings, update, actions}) {
 	const limit = Number(preload.limit) || 0;
 	const cachingEnabled = Boolean(settings.cache?.cachingStatus);
 	const ready = Boolean(preload.enabled) && cachingEnabled;
+	const lastRun = status.queueLastRun || {};
+	const completed = status.queueState === 'completed' && Number(status.queueRemaining || 0) === 0;
+	const nonBlocking = lastRun.mode === 'non-blocking';
+	const heroTitle = !ready
+		? (preload.enabled ? 'Preload needs page caching' : 'Preload is off')
+		: (completed ? 'Preload complete' : 'Warming content');
+	const heroNote = !ready
+		? (preload.enabled
+			? 'Page caching is off. Enable it under Caching → Cache before preload can run.'
+			: 'Turn preload on to queue and warm pages. The queue below still reflects the last run.')
+		: (completed
+			? `${formatNumber(Number(lastRun.success) || Number(status.queueProcessed) || 0)} of ${formatNumber(Number(lastRun.total) || Number(status.queueTotal) || 0)} pages ${nonBlocking ? 'dispatched' : 'preloaded'} in the last run${Number(lastRun.failed) > 0 ? `, ${formatNumber(lastRun.failed)} failed` : ''}.${nonBlocking ? ' The server finishes warming the cache after dispatch.' : ''}`
+			: 'Queued pages are cached in the background, starting with the homepage.');
 
 	return (
 		<div className="khse-stack">
@@ -684,20 +723,17 @@ export function PreloadView({data, settings, update, actions}) {
 				className="khse-preload-hero"
 				title="Preload"
 				description="Warm cache-first pages before a guest requests them."
-				action={<Pill tone={preload.enabled ? 'success' : 'neutral'} dot>{preload.enabled ? 'Preload on' : 'Preload off'}</Pill>}
+				action={(
+					<div className="khse-inline">
+						<Pill tone={preload.enabled ? 'success' : 'neutral'} dot>{preload.enabled ? 'Preload on' : 'Preload off'}</Pill>
+						{completed ? <Pill tone="success" dot>Last run complete</Pill> : null}
+					</div>
+				)}
 			>
 				<div className="khse-preload-hero__grid">
 					<div className="khse-preload-hero__main">
-						<h3 className="khse-preload-hero__title">
-							{ready ? 'Warming content' : preload.enabled ? 'Preload needs page caching' : 'Preload is off'}
-						</h3>
-						<p className="khse-note">
-							{ready
-								? 'Queued pages are cached in the background, starting with the homepage.'
-								: preload.enabled
-									? 'Page caching is off. Enable it under Caching → Cache before preload can run.'
-									: 'Turn preload on to queue and warm pages. The queue below still reflects the last run.'}
-						</p>
+						<h3 className="khse-preload-hero__title">{heroTitle}</h3>
+						<p className="khse-note">{heroNote}</p>
 						{!cachingEnabled && preload.enabled ? (
 							<p className="khse-preload-warning" role="status">Caching is paused, so the queued count may be stale until preload is run with caching enabled.</p>
 						) : null}

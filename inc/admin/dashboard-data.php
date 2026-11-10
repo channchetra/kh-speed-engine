@@ -443,6 +443,15 @@ function khse_dashboard_get_status_data() {
 	$queue_running     = 0;
 	$queue_paused      = function_exists( 'khse_is_preload_queue_paused' ) && khse_is_preload_queue_paused();
 	$queue_jobs        = function_exists( 'khse_preload_queue_jobs' ) ? khse_preload_queue_jobs( 50 ) : array();
+	$queue_last        = function_exists( 'khse_preload_queue_last_run' ) ? khse_preload_queue_last_run() : array(
+		'finished' => 0,
+		'total'    => 0,
+		'success'  => 0,
+		'failed'   => 0,
+		'mode'     => '',
+	);
+	$queue_last_total  = (int) $queue_last['total'];
+	$queue_state       = $queue_paused ? 'paused' : ( $queue_remaining > 0 ? 'running' : ( $queue_total > 0 || $queue_last_total > 0 ? 'completed' : 'idle' ) );
 	$debug_enabled     = khse_is_debug_mode();
 	$success_log       = $debug_enabled && function_exists( 'khse_preload_log_recent_by_status' ) ? khse_preload_log_recent_by_status( 'success', 50 ) : array();
 	$success_count     = $debug_enabled && function_exists( 'khse_preload_log_count_by_status' ) ? khse_preload_log_count_by_status( 'success' ) : 0;
@@ -536,9 +545,16 @@ function khse_dashboard_get_status_data() {
 			'queuePending'   => $queue_pending,
 			'queueRunning'   => $queue_running,
 			'queuePaused'    => $queue_paused,
-			'queueState'     => $queue_paused ? 'paused' : 'running',
+			'queueState'     => $queue_state,
 			'queueJobs'      => $queue_jobs,
 			'queueJobCount'  => $queue_job_count,
+			'queueLastRun'   => array(
+				'total'    => $queue_last_total,
+				'success'  => (int) $queue_last['success'],
+				'failed'   => (int) $queue_last['failed'],
+				'mode'     => (string) $queue_last['mode'],
+				'finished' => (int) $queue_last['finished'] > 0 ? khse_dashboard_format_time( (int) $queue_last['finished'] ) : 'Never',
+			),
 			'debugEnabled'   => $debug_enabled,
 			'successLog'     => $success_log,
 			'successCount'   => $success_count,

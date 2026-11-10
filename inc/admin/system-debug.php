@@ -275,8 +275,26 @@ function khse_get_system_configuration() {
 		'processing' => 0,
 		'failed'     => (int) $queue['failed'],
 	);
-	$lock   = (int) get_option( 'khse_preload_queue_lock', 0 );
-	$debug  = khse_is_debug_mode();
+	$lock     = (int) get_option( 'khse_preload_queue_lock', 0 );
+	$debug    = khse_is_debug_mode();
+	$last_run = function_exists( 'khse_preload_queue_last_run' ) ? khse_preload_queue_last_run() : array(
+		'finished' => 0,
+		'total'    => 0,
+		'success'  => 0,
+		'failed'   => 0,
+		'mode'     => '',
+	);
+	$last_run_label = 'None';
+
+	if ( (int) $last_run['total'] > 0 ) {
+		$last_run_label = sprintf(
+			'%d %s · %d failed · %s',
+			(int) $last_run['success'],
+			'non-blocking' === $last_run['mode'] ? 'dispatched' : 'preloaded',
+			(int) $last_run['failed'],
+			wp_date( 'Y-m-d H:i:s', (int) $last_run['finished'] )
+		);
+	}
 
 	$wordpress = array(
 		khse_debug_row( 'WordPress', get_bloginfo( 'version' ) ),
@@ -374,6 +392,7 @@ function khse_get_system_configuration() {
 		khse_debug_row( 'Queue backend', khse_preload_queue_store_available() ? 'Durable table' : 'Transient fallback', khse_preload_queue_store_available() ? 'pass' : 'warning' ),
 		khse_debug_row( 'Queue table', khse_preload_queue_table_exists() ? 'Present' : 'Missing', khse_preload_queue_table_exists() ? 'pass' : 'fail' ),
 		khse_debug_row( 'Queue rows', sprintf( 'Pending %d · Running %d · Failed %d', (int) $counts['pending'], (int) $counts['processing'], (int) $counts['failed'] ) ),
+		khse_debug_row( 'Last preload run', $last_run_label ),
 		khse_debug_row( 'Queue paused', khse_is_preload_queue_paused() ? 'Yes' : 'No', khse_is_preload_queue_paused() ? 'warning' : 'pass' ),
 		khse_debug_row( 'Queue lock', $lock > 0 ? sprintf( '%d seconds old', max( 0, time() - $lock ) ) : 'None', $lock > 0 && ( time() - $lock ) > 300 ? 'warning' : 'info' ),
 		khse_debug_row( 'Next queue event', wp_next_scheduled( 'khse_preload_queue_event' ) ? wp_date( 'Y-m-d H:i:s', (int) wp_next_scheduled( 'khse_preload_queue_event' ) ) : 'Not scheduled' ),
@@ -407,6 +426,7 @@ function khse_get_system_debug_data() {
 			'processed' => (int) $queue['processed'],
 			'failed'    => (int) $queue['failed'],
 			'remaining' => (int) $queue['remaining'],
+			'lastRun'   => function_exists( 'khse_preload_queue_last_run' ) ? khse_preload_queue_last_run() : array(),
 			'jobs'      => khse_preload_queue_jobs( 20 ),
 		),
 	);

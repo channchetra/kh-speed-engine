@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.3.0';
+const VERSION = window.khseDashboard?.version || '4.3.1';
 
 const FEATURES = [
 	{
@@ -32,10 +32,10 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'Clearing cache on private/container hosts now starts preload immediately.',
-	'Dashboard and debug requests drain pending private-host queues inline.',
-	'Background queue shows successful preload pages when debug mode is on.',
-	'Queue rows expand for HTTP status, error code, transport, timing, and attempts.'
+	'The Preload page keeps the last run visible after the queue finishes.',
+	'Background queue shows Completed, Running, Paused, or Idle state.',
+	'A last-run summary shows dispatched pages, failures, finish time, and transport.',
+	'Successful pages stay visible after the queue drains when debug mode is on.'
 ];
 
 export default function AboutView({data}) {
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.3.0" description="Highlights from this release.">
+			<Card title="What's new in 4.3.1" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>

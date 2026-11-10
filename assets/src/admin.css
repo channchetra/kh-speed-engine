@@ -3790,3 +3790,18 @@ body.folded .khse-savebar {
 	font-size: 13px;
 	font-weight: 700;
 }
+
+/* Background queue: last finished run summary */
+
+.khse-queue-summary {
+	margin: 0;
+	border-top: 1px solid var(--khse-line);
+	padding: 10px 20px;
+	color: var(--khse-muted);
+	font-size: 11.5px;
+	line-height: 1.5;
+}
+
+.khse-queue-summary strong {
+	color: var(--khse-ink);
+}

@@ -68,6 +68,79 @@ class PreloadControlsTest extends WP_UnitTestCase {
 		$this->assertCount( 2, $status['preload']['queueJobs'] );
 	}
 
+	public function test_dashboard_keeps_the_last_run_after_the_queue_finishes() {
+		delete_option( 'khse_preload_queue_finished_time' );
+		delete_option( 'khse_preload_queue_last_finished' );
+		delete_option( 'khse_preload_queue_last_total' );
+		delete_option( 'khse_preload_queue_last_success' );
+		delete_option( 'khse_preload_queue_last_failed' );
+		delete_option( 'khse_preload_queue_last_mode' );
+		delete_option( 'khse_preload_queue_lock' );
+
+		set_transient( 'khse_preload_queue', array( home_url( '/one/' ), home_url( '/two/' ) ), HOUR_IN_SECONDS );
+		update_option( 'khse_preload_queue_total', 2 );
+		update_option( 'khse_preload_queue_processed', 0 );
+		update_option( 'khse_preload_queue_failed', 0 );
+		update_option( 'khse_preload_queue_remaining', 2 );
+
+		$ok = static function () {
+			return array(
+				'headers'  => array(),
+				'body'     => '<html><body>' . str_repeat( 'x', 2000 ) . '</body></html>',
+				'response' => array( 'code' => 200, 'message' => 'OK' ),
+				'cookies'  => array(),
+				'filename' => null,
+			);
+		};
+
+		add_filter( 'khse_preload_blocking', '__return_false' );
+		add_filter( 'pre_http_request', $ok, 20, 3 );
+		$processed = khse_process_preload_queue();
+		remove_filter( 'pre_http_request', $ok, 20 );
+		remove_filter( 'khse_preload_blocking', '__return_false' );
+
+		$this->assertSame( 2, $processed );
+
+		$status = khse_get_preload_queue_status();
+
+		$this->assertSame( 2, (int) $status['total'] );
+		$this->assertSame( 2, (int) $status['processed'] );
+		$this->assertSame( 0, (int) $status['remaining'] );
+
+		$dashboard = khse_dashboard_get_status_data();
+
+		$this->assertSame( 'completed', $dashboard['preload']['queueState'] );
+		$this->assertSame( 2, (int) $dashboard['preload']['queueLastRun']['total'] );
+		$this->assertSame( 2, (int) $dashboard['preload']['queueLastRun']['success'] );
+		$this->assertSame( 0, (int) $dashboard['preload']['queueLastRun']['failed'] );
+
+		// A new run must show live counters instead of the finished run.
+		update_option( 'khse_preload_queue_finished_time', 0 );
+		set_transient( 'khse_preload_queue', array( home_url( '/three/' ) ), HOUR_IN_SECONDS );
+		update_option( 'khse_preload_queue_total', 1 );
+		update_option( 'khse_preload_queue_processed', 0 );
+		update_option( 'khse_preload_queue_failed', 0 );
+		update_option( 'khse_preload_queue_remaining', 1 );
+
+		$active = khse_get_preload_queue_status();
+
+		$this->assertSame( 1, (int) $active['total'] );
+		$this->assertSame( 0, (int) $active['processed'] );
+		$this->assertSame( 1, (int) $active['remaining'] );
+
+		delete_option( 'khse_preload_queue_finished_time' );
+		delete_option( 'khse_preload_queue_last_finished' );
+		delete_option( 'khse_preload_queue_last_total' );
+		delete_option( 'khse_preload_queue_last_success' );
+		delete_option( 'khse_preload_queue_last_failed' );
+		delete_option( 'khse_preload_queue_last_mode' );
+		delete_option( 'khse_preload_queue_total' );
+		delete_option( 'khse_preload_queue_processed' );
+		delete_option( 'khse_preload_queue_failed' );
+		delete_option( 'khse_preload_queue_remaining' );
+		delete_transient( 'khse_preload_queue' );
+	}
+
 	public function test_resume_allows_the_queue_to_process_again() {
 		set_transient( 'khse_preload_queue', array( home_url( '/resume/' ) ), HOUR_IN_SECONDS );
 		update_option( 'khse_preload_queue_total', 1 );

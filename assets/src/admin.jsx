@@ -83,6 +83,14 @@ function App() {
 			.finally(() => setBusy(false));
 	}, [notify, dirty]);
 
+	const syncStatus = useCallback((action, payload = {}) => request(action, payload).then((result) => {
+		if (result.status) {
+			setData(clone(result.status));
+		}
+
+		return result;
+	}), []);
+
 	const update = (section, key, value) => {
 		setSettings((current) => ({
 			...current,
@@ -167,9 +175,9 @@ function App() {
 		testUrl: (url) => request('khse_action_dashboard_test_url', {url}),
 		getNginxSnippet: () => request('khse_action_dashboard_nginx_snippet'),
 		getSystemDebug: () => request('khse_action_dashboard_system_debug'),
-		toggleDebug: (enabled) => request('khse_action_dashboard_debug_toggle', {enabled: enabled ? '1' : '0'}),
-		clearDebug: () => request('khse_action_dashboard_debug_clear'),
-		productionDebug: () => request('khse_action_dashboard_debug_production'),
+		toggleDebug: (enabled) => syncStatus('khse_action_dashboard_debug_toggle', {enabled: enabled ? '1' : '0'}),
+		clearDebug: () => syncStatus('khse_action_dashboard_debug_clear'),
+		productionDebug: () => syncStatus('khse_action_dashboard_debug_production'),
 		notify,
 		loadReports,
 		go

@@ -192,6 +192,40 @@ describe('admin views render server-side', () => {
 		expect(markup).toContain('/cached-page/');
 	});
 
+	it('shows the completed last run when the queue is empty', () => {
+		const readySettings = {
+			...settings,
+			cache: {...settings.cache, cachingStatus: true},
+			preload: {...settings.preload, enabled: true}
+		};
+		const completedData = {
+			...data,
+			preload: {
+				...data.preload,
+				queueTotal: 50,
+				queueProcessed: 50,
+				queueRemaining: 0,
+				queueState: 'completed',
+				queueLastRun: {total: 50, success: 50, failed: 0, mode: 'non-blocking', finished: '2 mins ago'},
+				debugEnabled: true,
+				successCount: 50,
+				successLog: [
+					{id: 1, label: '/home/', httpStatus: 0, durationMs: 25, mode: 'non-blocking', createdAt: '2026-11-10 14:45:00'}
+				]
+			}
+		};
+
+		const markup = text(
+			<PreloadView data={completedData} settings={readySettings} update={noop} actions={actions} />
+		);
+
+		expect(markup).toContain('Preload complete');
+		expect(markup).toContain('Last run complete');
+		expect(markup).toContain('dispatched');
+		expect(markup).toContain('Last run:');
+		expect(markup).toContain('Preloaded pages');
+	});
+
 	it('renders system, proxy, and preload diagnostics', () => {
 		const debugData = {
 			debugEnabled: true,

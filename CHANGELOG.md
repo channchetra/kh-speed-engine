@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.3.1] - 2026-11-10
+
+### Fixed
+- The Preload page no longer drops to an empty “Nothing queued” state after a successful run. The dashboard keeps the last run's total, dispatched, failed, and finish time until the next run starts.
+- Background queue now shows Completed, Running, Paused, or Idle instead of always showing Running with zero counters.
+- Successful preload pages stay visible after the queue drains when debug mode is on.
+- A new run shows live counters again instead of inheriting the previous run's finished counters.
+
+### Changed
+- Background queue shows a last-run summary with dispatched pages, failures, finish time, and transport mode.
+- Preloaded pages list includes the transport mode so blocking and non-blocking runs are distinguishable.
+
 ## [4.3.0] - 2026-11-10
 
 ### Added

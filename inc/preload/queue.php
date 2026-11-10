@@ -338,6 +338,88 @@ function khse_reset_preload_queue_state() {
 }
 
 /**
+ * Snapshot the finished run so the dashboard can keep showing it.
+ *
+ * Active counters are reset after the queue empties. Without a snapshot the
+ * Background queue would show 0/0/0 seconds after a successful run.
+ *
+ * @param int|null $remaining Optional known remaining count.
+ *
+ * @return bool Whether a snapshot was written.
+ */
+function khse_preload_queue_snapshot_last_run( $remaining = null ) {
+	$finished  = (int) get_option( 'khse_preload_queue_finished_time', 0 );
+	$remaining = null === $remaining ? (int) get_option( 'khse_preload_queue_remaining', 0 ) : (int) $remaining;
+
+	if ( $finished <= 0 || $remaining > 0 ) {
+		return false;
+	}
+
+	if ( $finished === (int) get_option( 'khse_preload_queue_last_finished', 0 ) ) {
+		return false;
+	}
+
+	$processed = (int) get_option( 'khse_preload_queue_processed', 0 );
+	$failed    = (int) get_option( 'khse_preload_queue_failed', 0 );
+	$total     = $processed + $failed;
+
+	if ( $total <= 0 ) {
+		return false;
+	}
+
+	update_option( 'khse_preload_queue_last_finished', $finished, false );
+	update_option( 'khse_preload_queue_last_total', $total, false );
+	update_option( 'khse_preload_queue_last_success', $processed, false );
+	update_option( 'khse_preload_queue_last_failed', $failed, false );
+
+	return true;
+}
+
+/**
+ * Return the last finished preload run.
+ *
+ * @return array{finished:int,total:int,success:int,failed:int,mode:string}
+ */
+function khse_preload_queue_last_run() {
+	$finished = (int) get_option( 'khse_preload_queue_last_finished', 0 );
+	$total    = (int) get_option( 'khse_preload_queue_last_total', 0 );
+
+	if ( $finished <= 0 || $total <= 0 ) {
+		return array(
+			'finished' => 0,
+			'total'    => 0,
+			'success'  => 0,
+			'failed'   => 0,
+			'mode'     => '',
+		);
+	}
+
+	return array(
+		'finished' => $finished,
+		'total'    => $total,
+		'success'  => (int) get_option( 'khse_preload_queue_last_success', 0 ),
+		'failed'   => (int) get_option( 'khse_preload_queue_last_failed', 0 ),
+		'mode'     => (string) get_option( 'khse_preload_queue_last_mode', '' ),
+	);
+}
+
+/**
+ * Last run in the four-key queue-status shape.
+ *
+ * @return array{total:int,processed:int,failed:int,remaining:int}
+ */
+function khse_preload_queue_last_run_status() {
+	$last = khse_preload_queue_last_run();
+
+	return array(
+		'total'     => (int) $last['total'],
+		'processed' => (int) $last['success'],
+		'failed'    => (int) $last['failed'],
+		'remaining' => 0,
+	);
+}
+
+/**
  * Return the current preload queue counters.
  *
  * Keeps the stale-state cleanup and the denominator rule inside the preload
@@ -358,6 +440,10 @@ function khse_get_preload_queue_status() {
 		$stored_left    = (int) get_option( 'khse_preload_queue_remaining', 0 );
 		$stored_failed  = (int) get_option( 'khse_preload_queue_failed', 0 );
 
+		if ( $remaining <= 0 ) {
+			khse_preload_queue_snapshot_last_run( 0 );
+		}
+
 		if ( $remaining <= 0 && $failed <= 0 ) {
 			// A worker between deleting the last row and updating its counters
 			// still owns the queue; do not clear state underneath it.
@@ -367,7 +453,9 @@ function khse_get_preload_queue_status() {
 				khse_reset_preload_queue_state();
 			}
 
-			return array(
+			$last = khse_preload_queue_last_run_status();
+
+			return $last['total'] > 0 ? $last : array(
 				'total'     => 0,
 				'processed' => 0,
 				'failed'    => 0,
@@ -400,7 +488,14 @@ function khse_get_preload_queue_status() {
 		$lock = (int) get_option( 'khse_preload_queue_lock', 0 );
 
 		if ( ( $lock <= 0 || ( time() - $lock ) >= 300 ) && ( $total > 0 || $processed > 0 || $failed > 0 || (int) get_option( 'khse_preload_queue_remaining', 0 ) > 0 ) ) {
+			khse_preload_queue_snapshot_last_run( 0 );
 			khse_reset_preload_queue_state();
+
+			$last = khse_preload_queue_last_run_status();
+
+			if ( $last['total'] > 0 ) {
+				return $last;
+			}
 		}
 
 		return array(
@@ -619,6 +714,7 @@ function khse_process_preload_queue_store() {
 			}
 		} else {
 			update_option( 'khse_preload_queue_finished_time', time() );
+			khse_preload_queue_snapshot_last_run( 0 );
 		}
 
 		return 0;
@@ -731,6 +827,7 @@ function khse_process_preload_queue_store() {
 		khse_schedule_preload_queue();
 	} else {
 		update_option( 'khse_preload_queue_finished_time', time() );
+		khse_preload_queue_snapshot_last_run( 0 );
 	}
 
 	return $processed;
@@ -784,6 +881,7 @@ function khse_process_preload_batch( $queue ) {
 	if ( empty( $remaining ) ) {
 		delete_transient( 'khse_preload_queue' );
 		update_option( 'khse_preload_queue_finished_time', time() );
+		khse_preload_queue_snapshot_last_run( 0 );
 		return count( $batch );
 	}
 

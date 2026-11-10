@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.3.0
+Stable tag: 4.3.1
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -126,6 +126,14 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.3.1 (11/10/2026) =
+
+* Keep the last preload run visible after the queue finishes.
+* Show Completed, Running, Paused, or Idle queue state.
+* Keep successful pages visible after the queue drains when debug mode is on.
+* Show the last-run page count, failures, finish time, and transport mode.
+* Show transport mode in the preloaded pages list.
 
 = 4.3.0 (11/10/2026) =
 

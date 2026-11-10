@@ -86,7 +86,17 @@ export function BackgroundQueue({preload, actions}) {
 	const successLog = Array.isArray(preload.successLog) ? preload.successLog : [];
 	const successCount = Number(preload.successCount) || 0;
 	const jobCount = Number(preload.queueJobCount) || jobs.length;
-	const state = paused ? 'Paused' : 'Running';
+	const lastRun = preload.queueLastRun || {};
+	const lastTotal = Number(lastRun.total) || 0;
+	const lastFailed = Number(lastRun.failed) || 0;
+	const nonBlocking = lastRun.mode === 'non-blocking';
+	const state = paused
+		? 'Paused'
+		: preload.queueState === 'completed'
+			? 'Completed'
+			: preload.queueState === 'idle'
+				? 'Idle'
+				: 'Running';
 	const [openId, setOpenId] = useState(0);
 	const [details, setDetails] = useState({});
 	const [loadingId, setLoadingId] = useState(0);
@@ -138,6 +148,15 @@ export function BackgroundQueue({preload, actions}) {
 					<Stat label="State" value={state} tone={paused ? 'amber' : 'green'} />
 				</div>
 			</div>
+			{lastTotal > 0 ? (
+				<p className="khse-queue-summary">
+					<strong>Last run:</strong>{' '}
+					{formatNumber(Number(lastRun.success) || 0)} of {formatNumber(lastTotal)} pages {nonBlocking ? 'dispatched' : 'preloaded'}
+					{lastFailed > 0 ? ` · ${formatNumber(lastFailed)} failed` : ' · no failures'}
+					{' · '}{lastRun.finished || 'recently'}
+					{nonBlocking ? '. The server finishes warming non-blocking requests after dispatch.' : '.'}
+				</p>
+			) : null}
 			<div className="khse-table-wrap">
 				<table className="khse-table khse-queue-table">
 					<thead>
@@ -208,8 +227,10 @@ export function BackgroundQueue({preload, actions}) {
 								<td colSpan={5} data-label="Queue">
 									<EmptyState
 										icon={Zap}
-										title="No background jobs"
-										description="Run preload to queue pages for warming."
+										title={lastTotal > 0 ? 'Last preload run finished' : 'No background jobs'}
+										description={lastTotal > 0
+											? 'The queue is empty. Pending retries and new jobs will appear here.'
+											: 'Run preload to queue pages for warming.'}
 									/>
 								</td>
 							</tr>
@@ -224,7 +245,7 @@ export function BackgroundQueue({preload, actions}) {
 				<div className="khse-queue-success">
 					<div className="khse-queue-success__head">
 						<h3 className="khse-queue-success__title">Preloaded pages</h3>
-						<Pill tone="success">{formatNumber(successCount)} successful</Pill>
+						<Pill tone="success">{formatNumber(successCount)} logged</Pill>
 					</div>
 					{successLog.length ? (
 						<div className="khse-table-wrap">
@@ -234,6 +255,7 @@ export function BackgroundQueue({preload, actions}) {
 										<th>Time</th>
 										<th>Page</th>
 										<th>HTTP</th>
+										<th>Transport</th>
 										<th>Duration</th>
 									</tr>
 								</thead>
@@ -241,8 +263,9 @@ export function BackgroundQueue({preload, actions}) {
 									{successLog.map((log) => (
 										<tr key={log.id}>
 											<td data-label="Time">{log.createdAt}</td>
-											<td data-label="Page"><strong>{log.label}</strong></td>
+											<td data-label="Page"><strong title={log.url || log.label}>{log.label}</strong></td>
 											<td data-label="HTTP">{log.httpStatus || '—'}</td>
+											<td data-label="Transport">{log.mode ? humanLabel(log.mode) : '—'}</td>
 											<td data-label="Duration">{log.durationMs ? `${formatNumber(log.durationMs)} ms` : '—'}</td>
 										</tr>
 									))}
@@ -252,6 +275,9 @@ export function BackgroundQueue({preload, actions}) {
 					) : (
 						<p className="khse-note">No successful preload attempts recorded yet. Run preload while debug mode is on.</p>
 					)}
+					{successCount > successLog.length ? (
+						<p className="khse-queue-showing">Showing the {formatNumber(successLog.length)} most recent of {formatNumber(successCount)} logged pages.</p>
+					) : null}
 				</div>
 			) : null}
 		</Card>

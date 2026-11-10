@@ -56,6 +56,9 @@ test.describe('KH Speed feature tour', () => {
 		await openView(page, 'Caching', 'Cache');
 
 		const loggedInSwitch = page.getByRole('switch', { name: 'Cache pages for logged-in users' });
+		const initiallyChecked = (await loggedInSwitch.getAttribute('aria-checked')) === 'true';
+		const toggledValue = initiallyChecked ? 'false' : 'true';
+		const restoredValue = initiallyChecked ? 'true' : 'false';
 
 		await loggedInSwitch.click();
 		await expect(page.getByText('Unsaved changes')).toBeVisible();
@@ -69,28 +72,31 @@ test.describe('KH Speed feature tour', () => {
 		]);
 
 		await expect(page.locator('.khse-toast')).toHaveCount(0);
-		await expect(loggedInSwitch).toHaveAttribute('aria-checked', 'true');
+		await expect(loggedInSwitch).toHaveAttribute('aria-checked', toggledValue);
 		await expect(page.getByText('Unsaved changes')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Discard' }).click();
-		await expect(loggedInSwitch).toHaveAttribute('aria-checked', 'false');
+		await expect(loggedInSwitch).toHaveAttribute('aria-checked', restoredValue);
 	});
 
 	test('saving settings and cache actions work end to end', async ({ page }) => {
 		await openView(page, 'Caching', 'Cache');
 
 		const loggedInSwitch = page.getByRole('switch', { name: 'Cache pages for logged-in users' });
+		const initiallyChecked = (await loggedInSwitch.getAttribute('aria-checked')) === 'true';
+		const toggledValue = initiallyChecked ? 'false' : 'true';
+		const restoredValue = initiallyChecked ? 'true' : 'false';
 
 		await loggedInSwitch.click();
 		await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
 		await page.getByRole('button', { name: 'Save changes' }).click();
 		await expect(page.locator('.khse-toast')).toContainText('Settings saved');
 
-		await expect(loggedInSwitch).toHaveAttribute('aria-checked', 'true');
+		await expect(loggedInSwitch).toHaveAttribute('aria-checked', toggledValue);
 		await loggedInSwitch.click();
 		await page.getByRole('button', { name: 'Save changes' }).click();
 		await expect(page.locator('.khse-toast')).toContainText('Settings saved');
-		await expect(loggedInSwitch).toHaveAttribute('aria-checked', 'false');
+		await expect(loggedInSwitch).toHaveAttribute('aria-checked', restoredValue);
 
 		await page.getByRole('button', { name: 'Preload', exact: true }).first().click();
 		await page.getByRole('button', { name: 'Purge homepage' }).click();
@@ -99,6 +105,24 @@ test.describe('KH Speed feature tour', () => {
 		await page.getByRole('button', { name: 'Run preload' }).click();
 		await expect(page.locator('.khse-toast')).toContainText('preload URLs queued');
 		await page.screenshot({ path: `${shots}/save-and-actions.png`, fullPage: true });
+	});
+
+	test('debug mode reveals preloaded pages on the preload view', async ({ page }) => {
+		await openView(page, 'Tools', 'System & debug');
+
+		const debugSwitch = page.getByRole('switch', { name: 'Debug mode' });
+
+		if ((await debugSwitch.getAttribute('aria-checked')) !== 'true') {
+			await debugSwitch.click();
+			await expect(page.locator('.khse-toast')).toContainText('Debug mode enabled');
+		}
+
+		await openView(page, 'Caching', 'Preload');
+		await expect(page.getByRole('heading', { name: 'Preloaded pages' })).toBeVisible();
+
+		await openView(page, 'Tools', 'System & debug');
+		await page.getByRole('switch', { name: 'Debug mode' }).click();
+		await expect(page.locator('.khse-toast')).toContainText('Debug mode disabled');
 	});
 
 	test('optimization, statistics, tools, benchmark and about', async ({ page }) => {
