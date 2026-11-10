@@ -105,7 +105,7 @@ test.describe('KH Speed feature tour', () => {
 		await expect(page.locator('.khse-toast')).toContainText('Homepage cache purged');
 
 		await page.getByRole('button', { name: 'Run preload' }).click();
-		await expect(page.locator('.khse-toast')).toContainText(/preload URLs queued|scheduled preload URLs/);
+		await expect(page.locator('.khse-toast')).toContainText(/preload URLs queued|scheduled preload URLs|Scheduled preload runner started/i);
 		await page.screenshot({ path: `${shots}/save-and-actions.png`, fullPage: true });
 	});
 

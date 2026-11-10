@@ -404,6 +404,7 @@ function khse_dashboard_get_settings_data() {
 			'interval'      => khse_get_setting( 'preload', 'interval' ),
 			'keepWarm'      => khse_get_setting( 'preload', 'keepWarm' ),
 			'keepWarmInterval' => khse_get_setting( 'preload', 'keepWarmInterval' ),
+			'frontendRun'   => khse_get_setting( 'preload', 'frontendRun' ),
 		),
 		'performance' => $optimization,
 		'rules'       => array(
@@ -467,7 +468,7 @@ function khse_dashboard_get_status_data() {
 	$scheduled_target  = $scheduled_max_entries > 0 ? min( $scheduled_available, $scheduled_max_entries ) : min( $scheduled_available, function_exists( 'khse_get_preload_max_urls' ) ? khse_get_preload_max_urls() : 10000 );
 	$scheduled_interval = function_exists( 'khse_get_preload_interval' ) ? khse_get_preload_interval() : 60;
 	$scheduled_next_at = (int) get_option( 'khse_preload_next_run', 0 );
-	$scheduled_next_label = $scheduled_next_at > time() ? human_time_diff( time(), $scheduled_next_at ) : __( 'now', 'kh-speed-engine' );
+	$scheduled_next_label = $scheduled_next_at > time() ? human_time_diff( time(), $scheduled_next_at ) : ( $queue_remaining > 0 ? __( 'Ready', 'kh-speed-engine' ) : __( 'now', 'kh-speed-engine' ) );
 	$scheduled_audit_at = (int) get_option( 'khse_preload_next_audit', 0 );
 	$scheduled_audit_label = $scheduled_audit_at > time() ? human_time_diff( time(), $scheduled_audit_at ) : __( 'not scheduled', 'kh-speed-engine' );
 	$scheduled_warnings = array();

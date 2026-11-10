@@ -131,6 +131,7 @@ function khse_get_settings_schema() {
 			'interval'      => array( 'option' => 'khse_option_preload_interval', 'default' => 60, 'sanitize' => 'absint', 'min' => 30, 'max' => 3600, 'read' => 'int' ),
 			'keepWarm'      => array( 'option' => 'khse_option_preload_keep_warm', 'default' => 'yes', 'sanitize' => 'yes_no', 'fallback' => 'yes', 'read' => 'enabled' ),
 			'keepWarmInterval' => array( 'option' => 'khse_option_preload_keep_warm_interval', 'default' => 21600, 'sanitize' => 'absint', 'min' => 3600, 'max' => 604800, 'read' => 'int' ),
+			'frontendRun'   => array( 'option' => 'khse_option_preload_frontend_run', 'default' => 'no', 'sanitize' => 'yes_no', 'fallback' => 'no', 'read' => 'enabled' ),
 		),
 		'rules'       => array(
 			'enabled'      => array( 'option' => 'khse_option_exclusion_status', 'default' => 'no', 'sanitize' => 'yes_no', 'fallback' => 'no', 'read' => 'enabled' ),

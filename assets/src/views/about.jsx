@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.4.1';
+const VERSION = window.khseDashboard?.version || '4.4.2';
 
 const FEATURES = [
 	{
@@ -32,10 +32,10 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'The scheduled runner no longer stalls on a zero next-run timestamp.',
-	'Scheduled mode replaces a stale quick-preload queue with the full-site queue.',
-	'Legacy quick-preload cron events are cleared in scheduled mode.',
-	'The Scheduled preload card warns when a quick queue is active.'
+	'Each scheduled run processes the full URLs-per-run size, such as 75.',
+	'Work continues immediately while pages remain, without the old 10-second cutoff.',
+	'An internal background runner chains runs without delaying visitors.',
+	'Patch upgrades keep an in-progress scheduled queue.'
 ];
 
 export default function AboutView({data}) {
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.4.1" description="Highlights from this release.">
+			<Card title="What's new in 4.4.2" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>

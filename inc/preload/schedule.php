@@ -46,6 +46,18 @@ function khse_is_preload_keep_warm_enabled() {
 }
 
 /**
+ * Whether front-end requests process a full scheduled run inline.
+ *
+ * Off by default: front-end requests trigger the background runner instead of
+ * delaying the visitor.
+ *
+ * @return bool
+ */
+function khse_is_preload_frontend_run_enabled() {
+	return 'yes' === get_option( 'khse_option_preload_frontend_run', 'no' );
+}
+
+/**
  * Seconds between keep-warm audits.
  *
  * @return int
@@ -233,7 +245,7 @@ function khse_handle_cache_cleared_preload() {
  *
  * @return int Number of processed URLs.
  */
-function khse_run_scheduled_preload_tick( $run_size = null, $budget = 10 ) {
+function khse_run_scheduled_preload_tick( $run_size = null, $budget = 120 ) {
 	if ( ! khse_is_preload_runnable() || khse_is_preload_queue_paused() ) {
 		return 0;
 	}
@@ -242,15 +254,15 @@ function khse_run_scheduled_preload_tick( $run_size = null, $budget = 10 ) {
 		return 0;
 	}
 
-	$run_size = null === $run_size ? khse_get_scheduled_preload_run_size() : max( 1, (int) $run_size );
-	$started  = microtime( true );
+	$run_size  = null === $run_size ? khse_get_scheduled_preload_run_size() : max( 1, (int) $run_size );
+	$started   = microtime( true );
 	$processed = 0;
-	$budget   = max( 1, (int) $budget );
+	$budget    = max( 1, (int) $budget );
 
 	while ( $processed < $run_size && ( microtime( true ) - $started ) < $budget ) {
 		$remaining_run = $run_size - $processed;
-		$batch_filter  = static function ( $size ) use ( $remaining_run ) {
-			return min( (int) $size, max( 1, (int) $remaining_run ) );
+		$batch_filter  = static function () use ( $remaining_run ) {
+			return max( 1, (int) $remaining_run );
 		};
 
 		add_filter( 'khse_preload_batch_size', $batch_filter );
@@ -268,13 +280,16 @@ function khse_run_scheduled_preload_tick( $run_size = null, $budget = 10 ) {
 		}
 	}
 
+	$has_pending = khse_preload_queue_has_pending();
+
 	if ( $processed > 0 ) {
-		update_option( 'khse_preload_next_run', time() + khse_get_preload_interval() );
+		// Continue immediately on the next request while work remains.
+		update_option( 'khse_preload_next_run', $has_pending ? time() : time() + khse_get_preload_interval() );
 		update_option( 'khse_preload_last_tick', time(), false );
 		update_option( 'khse_preload_last_tick_count', $processed, false );
 	}
 
-	if ( ! khse_preload_queue_has_pending() ) {
+	if ( ! $has_pending ) {
 		update_option( 'khse_preload_schedule_finished', time(), false );
 		update_option( 'khse_preload_next_audit', time() + khse_get_preload_keep_warm_interval() );
 	}
@@ -303,7 +318,8 @@ function khse_preload_scheduler_tick() {
 	$next_run      = (int) get_option( 'khse_preload_next_run', 0 );
 	$next_audit    = (int) get_option( 'khse_preload_next_audit', 0 );
 	$needs_rebuild = (bool) get_option( 'khse_preload_needs_rebuild', false );
-	$can_manage    = is_admin() || ( defined( 'DOING_CRON' ) && DOING_CRON );
+	$is_cron       = defined( 'DOING_CRON' ) && DOING_CRON;
+	$can_manage    = is_admin() || $is_cron;
 	$run_due       = $now >= $next_run;
 	$audit_due     = $can_manage && khse_is_preload_keep_warm_enabled() && $next_audit > 0 && $now >= $next_audit;
 
@@ -329,21 +345,24 @@ function khse_preload_scheduler_tick() {
 	$has_pending = khse_preload_queue_has_pending();
 
 	if ( $has_pending ) {
-		if ( function_exists( 'ignore_user_abort' ) ) {
-			ignore_user_abort( true );
+		$page_run = khse_is_preload_frontend_run_enabled();
+
+		if ( ! $is_cron && ! $page_run ) {
+			// Do not delay a visitor or an admin page with a full run. Trigger
+			// the internal background runner and keep page requests fast.
+			khse_kick_scheduled_runner();
+			update_option( 'khse_preload_next_run', time() );
+		} else {
+			if ( function_exists( 'ignore_user_abort' ) ) {
+				ignore_user_abort( true );
+			}
+
+			if ( function_exists( 'set_time_limit' ) ) {
+				@set_time_limit( 180 );
+			}
+
+			khse_run_scheduled_preload_tick( khse_get_scheduled_preload_run_size(), 120 );
 		}
-
-		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( 30 );
-		}
-
-		$run_size = khse_get_scheduled_preload_run_size();
-
-		if ( ! is_admin() && khse_preload_should_block( home_url( '/' ) ) ) {
-			$run_size = min( $run_size, 5 );
-		}
-
-		khse_run_scheduled_preload_tick( $run_size, 10 );
 	} elseif ( $audit_due ) {
 		khse_audit_scheduled_preload_cache();
 	} else {
@@ -356,6 +375,91 @@ function khse_preload_scheduler_tick() {
 }
 
 /**
+ * Ask the internal background runner to process the next scheduled run.
+ *
+ * The request is non-blocking so a visitor or admin request is not delayed.
+ * If the loopback is unavailable, the next admin/cron request continues.
+ *
+ * @return void
+ */
+function khse_kick_scheduled_runner( $force = false ) {
+	if ( ! khse_is_scheduled_preload_enabled() || ! khse_is_preload_runnable() || khse_is_preload_queue_paused() ) {
+		return;
+	}
+
+	if ( ! function_exists( 'wp_remote_get' ) ) {
+		return;
+	}
+
+	$last = (int) get_option( 'khse_preload_last_runner_kick', 0 );
+
+	if ( ! $force && $last > 0 && ( time() - $last ) < 1 ) {
+		return;
+	}
+
+	update_option( 'khse_preload_last_runner_kick', time(), false );
+
+	$url = add_query_arg(
+		array(
+			'action' => 'khse_preload_scheduled_run',
+			'token'  => khse_get_preload_token(),
+		),
+		admin_url( 'admin-ajax.php' )
+	);
+
+	wp_remote_get(
+		$url,
+		array(
+			'blocking'  => false,
+			'timeout'   => 1,
+			'sslverify' => khse_preload_should_verify_ssl( $url ),
+		)
+	);
+}
+
+/**
+ * Internal token-protected background runner.
+ *
+ * Processes one full scheduled run, then chains the next request while work
+ * remains. This keeps the queue moving without an external cron service.
+ *
+ * @return void
+ */
+function khse_ajax_scheduled_preload_runner() {
+	$token = isset( $_REQUEST['token'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['token'] ) ) : '';
+
+	if ( ! hash_equals( khse_get_preload_token(), $token ) ) {
+		wp_die( '0', '', array( 'response' => 403 ) );
+	}
+
+	if ( get_transient( 'khse_preload_runner_chain_lock' ) ) {
+		wp_die( '0' );
+	}
+
+	set_transient( 'khse_preload_runner_chain_lock', 1, 120 );
+
+	if ( function_exists( 'ignore_user_abort' ) ) {
+		ignore_user_abort( true );
+	}
+
+	if ( function_exists( 'set_time_limit' ) ) {
+		@set_time_limit( 180 );
+	}
+
+	$processed = khse_run_scheduled_preload_tick( khse_get_scheduled_preload_run_size(), 120 );
+	$pending   = khse_preload_queue_has_pending();
+
+	delete_transient( 'khse_preload_runner_chain_lock' );
+
+	if ( $pending ) {
+		khse_kick_scheduled_runner( true );
+	}
+
+	wp_die( (string) $processed );
+}
+
+/**
+ * Check whether a URL currently has a cache entry./**
  * Check whether a URL currently has a cache entry.
  *
  * @param \Shieldon\SimpleCache\Cache $driver Cache driver.
@@ -457,8 +561,18 @@ function khse_maybe_build_scheduled_preload_queue() {
 	$version       = defined( 'KHSE_PLUGIN_VERSION' ) ? KHSE_PLUGIN_VERSION : '';
 	$needs_rebuild = (bool) get_option( 'khse_preload_needs_rebuild', false );
 
-	if ( ! $needs_rebuild && ( '' === $version || $version === (string) get_option( 'khse_preload_schedule_version', '' ) ) ) {
+	if ( '' === $version || $version === (string) get_option( 'khse_preload_schedule_version', '' ) ) {
 		return;
+	}
+
+	if ( ! $needs_rebuild ) {
+		$last_run = khse_preload_queue_last_run();
+
+		if ( 'scheduled' === (string) get_option( 'khse_preload_queue_mode', '' ) && ( khse_preload_queue_has_pending() || (int) $last_run['total'] > 0 ) ) {
+			// A patch upgrade must not reset an in-progress scheduled cycle.
+			update_option( 'khse_preload_schedule_version', $version, false );
+			return;
+		}
 	}
 
 	if ( ! current_user_can( 'manage_options' ) || get_transient( 'khse_preload_schedule_build_lock' ) ) {
@@ -478,4 +592,6 @@ if ( function_exists( 'add_action' ) ) {
 	add_action( 'shutdown', 'khse_preload_scheduler_tick', 20 );
 	add_action( 'admin_init', 'khse_maybe_build_scheduled_preload_queue', 20 );
 	add_action( 'khse_cache_cleared', 'khse_handle_cache_cleared_preload' );
+	add_action( 'wp_ajax_nopriv_khse_preload_scheduled_run', 'khse_ajax_scheduled_preload_runner' );
+	add_action( 'wp_ajax_khse_preload_scheduled_run', 'khse_ajax_scheduled_preload_runner' );
 }

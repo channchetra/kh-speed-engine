@@ -744,7 +744,7 @@ function ScheduledPreload({status, settings, update, actions}) {
 			</div>
 			<p className="khse-note">
 				{enabled
-					? `Processes ${formatNumber(runSize)} URLs every ${intervalLabel(interval)}. ${scheduled.keepWarm ? `Keep-warm audit every ${keepWarmHours} hours.` : 'Keep-warm audit is off.'}`
+					? `Processes ${formatNumber(runSize)} URLs per run and continues with the next run while work remains. ${scheduled.keepWarm ? `Keep-warm audit every ${keepWarmHours} hours.` : 'Keep-warm audit is off.'}`
 					: 'Enable scheduled preload under Scope and save to start the automatic cycle.'}
 			</p>
 			{scheduled.needsRebuild ? <p className="khse-preload-warning" role="status">Rebuild pending. It starts on the next admin request, or click Build scheduled queue now.</p> : null}
@@ -786,9 +786,15 @@ function ScheduledPreload({status, settings, update, actions}) {
 						checked={Boolean(preloadSettings.keepWarm)}
 						onChange={(checked) => update('preload', 'keepWarm', checked)}
 					/>
+					<Switch
+						label="Process on page requests"
+						description="Off: page requests trigger the background runner. On: admin and front-end requests process a full run inline."
+						checked={Boolean(preloadSettings.frontendRun)}
+						onChange={(checked) => update('preload', 'frontendRun', checked)}
+					/>
 				</div>
 				<div className="khse-stack">
-					<Field label="Minutes between runs" description="How often the internal runner processes the next batch." htmlFor="khse-preload-interval">
+					<Field label="Fallback delay" description="Used only when the background runner cannot continue immediately." htmlFor="khse-preload-interval">
 						<TextInput
 							id="khse-preload-interval"
 							type="number"

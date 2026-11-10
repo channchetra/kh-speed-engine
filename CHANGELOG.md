@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.4.2] - 2026-11-10
+
+### Fixed
+- Scheduled preload now processes the full URLs-per-run size (for example 75) in one run. The old 10-second budget no longer stops it at the internal 25-row batch.
+- After a run with work remaining, the next run is due immediately instead of waiting for the fallback interval.
+- Added an internal token-protected background runner that chains the next run without delaying visitors.
+- Added a “Process on page requests” setting, off by default. Page requests trigger the background runner instead of processing a full run inline.
+- The Scheduled preload card shows “Ready” when the next run is due and uses “per run” copy.
+- Patch upgrades preserve an in-progress scheduled queue instead of resetting it.
+
 ## [4.4.1] - 2026-11-10
 
 ### Fixed

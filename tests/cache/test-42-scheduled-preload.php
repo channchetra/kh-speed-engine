@@ -28,6 +28,7 @@ class ScheduledPreloadTest extends WP_UnitTestCase {
 		delete_option( 'khse_preload_next_run' );
 		delete_option( 'khse_preload_queue_mode' );
 		delete_option( 'khse_preload_needs_rebuild' );
+		delete_option( 'khse_option_preload_frontend_run' );
 		delete_transient( 'khse_preload_queue' );
 		wp_clear_scheduled_hook( 'khse_preload_queue_event' );
 		wp_clear_scheduled_hook( 'khse_preload_runner_event' );
@@ -51,6 +52,7 @@ class ScheduledPreloadTest extends WP_UnitTestCase {
 		delete_option( 'khse_preload_next_run' );
 		delete_option( 'khse_preload_queue_mode' );
 		delete_option( 'khse_preload_needs_rebuild' );
+		delete_option( 'khse_option_preload_frontend_run' );
 		delete_transient( 'khse_preload_queue' );
 		wp_clear_scheduled_hook( 'khse_preload_queue_event' );
 		wp_clear_scheduled_hook( 'khse_preload_runner_event' );
@@ -68,6 +70,7 @@ class ScheduledPreloadTest extends WP_UnitTestCase {
 	}
 
 	public function test_scheduler_processes_pending_work_when_next_run_is_zero() {
+		update_option( 'khse_option_preload_frontend_run', 'yes' );
 		set_transient( 'khse_preload_queue', array( home_url( '/one/' ), home_url( '/two/' ) ), HOUR_IN_SECONDS );
 		update_option( 'khse_preload_queue_total', 2 );
 		update_option( 'khse_preload_queue_processed', 0 );
@@ -98,6 +101,47 @@ class ScheduledPreloadTest extends WP_UnitTestCase {
 
 		$this->assertSame( 2, (int) $status['processed'] );
 		$this->assertSame( 0, (int) $status['remaining'] );
+	}
+
+	public function test_scheduled_tick_processes_the_full_run_size() {
+		$queue = array();
+
+		for ( $i = 1; $i <= 100; $i++ ) {
+			$queue[] = home_url( '/scheduled-run-' . $i . '/' );
+		}
+
+		set_transient( 'khse_preload_queue', $queue, HOUR_IN_SECONDS );
+		update_option( 'khse_preload_queue_total', 100 );
+		update_option( 'khse_preload_queue_processed', 0 );
+		update_option( 'khse_preload_queue_failed', 0 );
+		update_option( 'khse_preload_queue_remaining', 100 );
+		update_option( 'khse_preload_next_run', 0 );
+		delete_transient( 'khse_preload_scheduler_lock' );
+		delete_option( 'khse_preload_queue_lock' );
+
+		$body = '<html><body>' . str_repeat( 'x', 2000 ) . '</body></html>';
+		$ok   = static function () use ( $body ) {
+			return array(
+				'headers'  => array(),
+				'body'     => $body,
+				'response' => array( 'code' => 200, 'message' => 'OK' ),
+				'cookies'  => array(),
+				'filename' => null,
+			);
+		};
+
+		add_filter( 'khse_preload_blocking', '__return_false' );
+		add_filter( 'pre_http_request', $ok, 20, 3 );
+		$processed = khse_run_scheduled_preload_tick( 75, 120 );
+		remove_filter( 'pre_http_request', $ok, 20 );
+		remove_filter( 'khse_preload_blocking', '__return_false' );
+
+		$status = khse_get_preload_queue_status();
+
+		$this->assertSame( 75, $processed );
+		$this->assertSame( 75, (int) $status['processed'] );
+		$this->assertSame( 25, (int) $status['remaining'] );
+		$this->assertLessThanOrEqual( time(), (int) get_option( 'khse_preload_next_run' ) );
 	}
 
 	public function test_dashboard_exposes_scheduled_settings_and_state() {
