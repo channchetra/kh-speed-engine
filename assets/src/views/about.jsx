@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.4.0';
+const VERSION = window.khseDashboard?.version || '4.4.1';
 
 const FEATURES = [
 	{
@@ -32,10 +32,10 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'Scheduled preload warms the site in batches until the cache limit or every published URL.',
-	'Priority URLs always process before the normal backlog.',
-	'The internal runner needs no WP-CLI or external cron.',
-	'A 6-hour keep-warm audit re-queues only missing or expired pages.'
+	'The scheduled runner no longer stalls on a zero next-run timestamp.',
+	'Scheduled mode replaces a stale quick-preload queue with the full-site queue.',
+	'Legacy quick-preload cron events are cleared in scheduled mode.',
+	'The Scheduled preload card warns when a quick queue is active.'
 ];
 
 export default function AboutView({data}) {
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.4.0" description="Highlights from this release.">
+			<Card title="What's new in 4.4.1" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>

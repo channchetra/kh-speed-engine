@@ -748,6 +748,9 @@ function ScheduledPreload({status, settings, update, actions}) {
 					: 'Enable scheduled preload under Scope and save to start the automatic cycle.'}
 			</p>
 			{scheduled.needsRebuild ? <p className="khse-preload-warning" role="status">Rebuild pending. It starts on the next admin request, or click Build scheduled queue now.</p> : null}
+			{enabled && total > 0 && status.queueMode !== 'scheduled' ? (
+				<p className="khse-preload-warning" role="status">The active queue is a quick preload, not the scheduled full-site queue. Click Rebuild scheduled queue to replace it.</p>
+			) : null}
 			{warnings.map((warning) => <p className="khse-preload-warning" role="status" key={warning}>{warning}</p>)}
 			<div className="khse-inline">
 				<Button variant="primary" icon={Zap} onClick={() => actions.buildScheduledPreload()} disabled={!enabled}>

@@ -517,11 +517,11 @@ function khse_ajax_dashboard_preload_callback() {
 	}
 
 	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
-		if ( ! khse_preload_queue_has_pending() ) {
+		if ( ! khse_preload_queue_has_pending() || ! khse_is_scheduled_preload_queue() ) {
 			khse_build_scheduled_preload_queue();
 		}
 
-		update_option( 'khse_preload_next_run', time(), false );
+		update_option( 'khse_preload_next_run', time() );
 		$processed = khse_run_scheduled_preload_tick( khse_get_scheduled_preload_run_size(), 10 );
 
 		wp_send_json_success(

@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.4.1] - 2026-11-10
+
+### Fixed
+- The scheduled runner now treats a missing or zero next-run timestamp as due, so a pending queue left by a quick preload no longer sits idle.
+- Scheduled mode routes every preload build to the full-site queue and replaces a stale quick queue when “Run preload” is clicked.
+- Scheduled mode clears legacy quick-preload cron events so they cannot reset the scheduled queue.
+- The Scheduled preload card warns when the active queue is a quick preload instead of the full-site queue.
+
 ## [4.4.0] - 2026-11-10
 
 ### Added

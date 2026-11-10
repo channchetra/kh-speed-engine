@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.4.0
+Stable tag: 4.4.1
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -126,6 +126,13 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.4.1 (11/10/2026) =
+
+* Fix the scheduled runner stalling when the next-run timestamp is zero.
+* Scheduled mode replaces a stale quick-preload queue with the full-site queue.
+* Clear legacy quick-preload cron events in scheduled mode.
+* Warn when the active queue is a quick preload.
 
 = 4.4.0 (11/10/2026) =
 

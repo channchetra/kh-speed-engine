@@ -385,6 +385,10 @@ function khse_preload_cache( $limit = null ) {
 		return 0;
 	}
 
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() && function_exists( 'khse_build_scheduled_preload_queue' ) ) {
+		return khse_build_scheduled_preload_queue();
+	}
+
 	if ( ! khse_acquire_preload_lock() ) {
 		// Another worker owns the queue; retry the rebuild shortly.
 		if ( function_exists( 'wp_schedule_single_event' ) ) {

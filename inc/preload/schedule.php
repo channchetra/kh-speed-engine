@@ -167,6 +167,11 @@ function khse_build_scheduled_preload_queue() {
 		update_option( 'khse_preload_schedule_version', defined( 'KHSE_PLUGIN_VERSION' ) ? KHSE_PLUGIN_VERSION : '', false );
 		delete_option( 'khse_preload_needs_rebuild' );
 
+		if ( function_exists( 'wp_clear_scheduled_hook' ) ) {
+			wp_clear_scheduled_hook( 'khse_preload_cache_event' );
+			wp_clear_scheduled_hook( 'khse_preload_queue_event' );
+		}
+
 		khse_ensure_preload_runner_event();
 	} finally {
 		khse_release_preload_lock();
@@ -206,6 +211,10 @@ function khse_reset_scheduled_preload_state() {
 function khse_handle_cache_cleared_preload() {
 	if ( khse_is_scheduled_preload_enabled() ) {
 		khse_reset_scheduled_preload_state();
+		if ( function_exists( 'wp_clear_scheduled_hook' ) ) {
+			wp_clear_scheduled_hook( 'khse_preload_cache_event' );
+			wp_clear_scheduled_hook( 'khse_preload_queue_event' );
+		}
 		update_option( 'khse_preload_queue_mode', 'scheduled', false );
 		update_option( 'khse_preload_needs_rebuild', 1 );
 		update_option( 'khse_preload_next_run', time() );
@@ -295,7 +304,7 @@ function khse_preload_scheduler_tick() {
 	$next_audit    = (int) get_option( 'khse_preload_next_audit', 0 );
 	$needs_rebuild = (bool) get_option( 'khse_preload_needs_rebuild', false );
 	$can_manage    = is_admin() || ( defined( 'DOING_CRON' ) && DOING_CRON );
-	$run_due       = $next_run > 0 && $now >= $next_run;
+	$run_due       = $now >= $next_run;
 	$audit_due     = $can_manage && khse_is_preload_keep_warm_enabled() && $next_audit > 0 && $now >= $next_audit;
 
 	if ( ! $run_due && ! $audit_due && ! $needs_rebuild ) {
@@ -337,7 +346,7 @@ function khse_preload_scheduler_tick() {
 		khse_run_scheduled_preload_tick( $run_size, 10 );
 	} elseif ( $audit_due ) {
 		khse_audit_scheduled_preload_cache();
-	} elseif ( $next_run > 0 ) {
+	} else {
 		// Nothing is waiting; push the next check out instead of querying on
 		// every request.
 		update_option( 'khse_preload_next_run', $now + khse_get_preload_interval() );
