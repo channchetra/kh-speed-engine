@@ -747,6 +747,9 @@ function ScheduledPreload({status, settings, update, actions}) {
 					? `Processes ${formatNumber(runSize)} URLs per run and continues with the next run while work remains. ${scheduled.keepWarm ? `Keep-warm audit every ${keepWarmHours} hours.` : 'Keep-warm audit is off.'}`
 					: 'Enable scheduled preload under Scope and save to start the automatic cycle.'}
 			</p>
+			{total > 0 && scheduled.lastTick === 'Never' ? (
+				<p className="khse-preload-warning" role="status">The background runner has not reported a run yet. Admin page loads process a run now; enable Process on page requests for front-end runs.</p>
+			) : null}
 			{scheduled.needsRebuild ? <p className="khse-preload-warning" role="status">Rebuild pending. It starts on the next admin request, or click Build scheduled queue now.</p> : null}
 			{enabled && total > 0 && status.queueMode !== 'scheduled' ? (
 				<p className="khse-preload-warning" role="status">The active queue is a quick preload, not the scheduled full-site queue. Click Rebuild scheduled queue to replace it.</p>

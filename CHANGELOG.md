@@ -1,11 +1,20 @@
 # Changelog
 
+## [4.4.3] - 2026-11-10
+
+### Fixed
+- Admin page loads now process a scheduled run inline when the internal background runner is unreachable, for example when loopback admin-ajax requests are blocked. A full queue can no longer sit at 0 processed.
+- Front-end requests process a small fallback batch inline when background processing is unavailable.
+- “Run preload” processes a full scheduled run inline instead of only starting the background runner.
+- Added runner diagnostics: Preload mode, Next runner event, Next scheduled run, and Last scheduled tick.
+- Added a no-progress warning on the Scheduled preload card.
+
 ## [4.4.2] - 2026-11-10
 
 ### Fixed
 - Scheduled preload now processes the full URLs-per-run size (for example 75) in one run. The old 10-second budget no longer stops it at the internal 25-row batch.
 - After a run with work remaining, the next run is due immediately instead of waiting for the fallback interval.
-- Added an internal token-protected background runner that chains the next run without delaying visitors.
+- Added an internal token-protected background runner that processes a scheduled run without delaying page requests.
 - Added a “Process on page requests” setting, off by default. Page requests trigger the background runner instead of processing a full run inline.
 - The Scheduled preload card shows “Ready” when the next run is due and uses “per run” copy.
 - Patch upgrades preserve an in-progress scheduled queue instead of resetting it.

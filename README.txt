@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.4.2
+Stable tag: 4.4.3
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -127,11 +127,18 @@ Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
 
+= 4.4.3 (11/10/2026) =
+
+* Admin page loads process a scheduled run inline when the background runner is unreachable.
+* Front-end requests process a small fallback batch inline.
+* “Run preload” processes a full scheduled run inline.
+* Add runner diagnostics and a no-progress warning.
+
 = 4.4.2 (11/10/2026) =
 
 * Process the full URLs-per-run size (75) per run instead of stopping at the internal 25-row batch.
 * Continue immediately while work remains instead of waiting for the fallback interval.
-* Add an internal background runner that chains runs without delaying visitors.
+* Add an internal background runner that processes runs without delaying page requests.
 * Add a “Process on page requests” setting, off by default.
 * Show “Ready” when the next run is due.
 * Preserve an in-progress scheduled queue across patch upgrades.

@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.4.2';
+const VERSION = window.khseDashboard?.version || '4.4.3';
 
 const FEATURES = [
 	{
@@ -32,10 +32,10 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'Each scheduled run processes the full URLs-per-run size, such as 75.',
-	'Work continues immediately while pages remain, without the old 10-second cutoff.',
-	'An internal background runner chains runs without delaying visitors.',
-	'Patch upgrades keep an in-progress scheduled queue.'
+	'Admin page loads process a scheduled run inline when the background runner is blocked.',
+	'Front-end requests process a small fallback batch inline.',
+	'Run preload processes a full scheduled run inline.',
+	'Runner diagnostics show the next event, next run, and last tick.'
 ];
 
 export default function AboutView({data}) {
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.4.2" description="Highlights from this release.">
+			<Card title="What's new in 4.4.3" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>

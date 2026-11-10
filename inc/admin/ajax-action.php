@@ -522,11 +522,15 @@ function khse_ajax_dashboard_preload_callback() {
 		}
 
 		update_option( 'khse_preload_next_run', time() );
-		khse_kick_scheduled_runner();
+		$processed = khse_run_scheduled_preload_tick( khse_get_scheduled_preload_run_size(), 120 );
 
 		wp_send_json_success(
 			array(
-				'message' => __( 'Scheduled preload runner started. Progress updates in the background.', 'kh-speed-engine' ),
+				'message' => sprintf(
+					/* translators: %s is the number of processed URLs. */
+					__( 'Processed %s scheduled preload URLs.', 'kh-speed-engine' ),
+					$processed
+				),
 				'status'  => khse_dashboard_get_status_data(),
 			)
 		);

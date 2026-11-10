@@ -346,10 +346,17 @@ function khse_preload_scheduler_tick() {
 
 	if ( $has_pending ) {
 		$page_run = khse_is_preload_frontend_run_enabled();
+		$inline   = (bool) apply_filters( 'khse_preload_inline_fallback', true );
+		$run_size = khse_get_scheduled_preload_run_size();
 
-		if ( ! $is_cron && ! $page_run ) {
-			// Do not delay a visitor or an admin page with a full run. Trigger
-			// the internal background runner and keep page requests fast.
+		if ( ! $is_cron && ! is_admin() && ! $page_run ) {
+			// Front-end fallback: process a small batch inline so the queue
+			// still moves when the loopback runner is blocked, then trigger
+			// the background runner for the rest.
+			if ( $inline ) {
+				khse_run_scheduled_preload_tick( min( 5, $run_size ), 60 );
+			}
+
 			khse_kick_scheduled_runner();
 			update_option( 'khse_preload_next_run', time() );
 		} else {
@@ -361,7 +368,7 @@ function khse_preload_scheduler_tick() {
 				@set_time_limit( 180 );
 			}
 
-			khse_run_scheduled_preload_tick( khse_get_scheduled_preload_run_size(), 120 );
+			khse_run_scheduled_preload_tick( $run_size, 120 );
 		}
 	} elseif ( $audit_due ) {
 		khse_audit_scheduled_preload_cache();
@@ -447,13 +454,8 @@ function khse_ajax_scheduled_preload_runner() {
 	}
 
 	$processed = khse_run_scheduled_preload_tick( khse_get_scheduled_preload_run_size(), 120 );
-	$pending   = khse_preload_queue_has_pending();
 
 	delete_transient( 'khse_preload_runner_chain_lock' );
-
-	if ( $pending ) {
-		khse_kick_scheduled_runner( true );
-	}
 
 	wp_die( (string) $processed );
 }
