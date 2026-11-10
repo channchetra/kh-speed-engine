@@ -212,6 +212,32 @@ class PreloadQueueTest extends WP_UnitTestCase {
 		$this->assertSame( 0, (int) $status['preload']['queueTotal'] );
 	}
 
+	public function test_preload_urls_fill_the_limit_when_homepage_links_overlap_latest_posts() {
+		update_option( 'khse_option_post_types', array( 'post' => 'yes' ) );
+		update_option( 'khse_option_post_archives', array() );
+
+		$post_ids = self::factory()->post->create_many( 60 );
+		$latest   = array_slice( $post_ids, -12 );
+		$priority = array( home_url( '/' ) );
+
+		foreach ( $latest as $post_id ) {
+			$priority[] = get_permalink( $post_id );
+		}
+
+		for ( $i = 0; $i < 25; $i++ ) {
+			$priority[] = home_url( '/priority-' . $i . '/' );
+		}
+
+		$this->assertCount( 38, $priority );
+
+		$urls = khse_get_preload_urls( 50, $priority );
+		$new  = array_values( array_diff( $urls, $priority ) );
+
+		$this->assertCount( 50, $urls );
+		$this->assertCount( 50, array_unique( $urls ) );
+		$this->assertCount( 12, $new );
+	}
+
 	public function test_critical_helper_queues_the_post_permalink() {
 		$post_id = self::factory()->post->create( array( 'post_status' => 'publish' ) );
 

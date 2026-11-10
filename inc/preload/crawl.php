@@ -303,23 +303,50 @@ function khse_get_preload_urls( $limit = null, $priority_urls = null ) {
 	$post_types = khse_get_preload_post_types();
 
 	if ( ! empty( $post_types ) && count( $urls ) < $limit ) {
-		$remaining = $limit - count( $urls );
-		$posts = get_posts(
-			array(
-				'post_type'      => $post_types,
-				'post_status'    => 'publish',
-				'posts_per_page' => $remaining,
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-			)
-		);
+		$seen       = array_fill_keys( array_map( 'strval', $urls ), true );
+		$page       = 1;
+		$batch_size = 100;
 
-		foreach ( $posts as $post_id ) {
-			$urls[] = get_permalink( $post_id );
+		// Homepage links often overlap with the latest posts. Page through
+		// older posts until the limit is filled with unique URLs instead of
+		// spending the whole budget on duplicates.
+		while ( count( $urls ) < $limit && $page <= 50 ) {
+			$posts = get_posts(
+				array(
+					'post_type'      => $post_types,
+					'post_status'    => 'publish',
+					'posts_per_page' => $batch_size,
+					'paged'          => $page,
+					'fields'         => 'ids',
+					'no_found_rows'  => true,
+					'orderby'        => array( 'date' => 'DESC', 'ID' => 'DESC' ),
+				)
+			);
 
-			if ( count( $urls ) >= $limit ) {
+			if ( empty( $posts ) ) {
 				break;
 			}
+
+			foreach ( $posts as $post_id ) {
+				$url = get_permalink( $post_id );
+
+				if ( ! is_string( $url ) || '' === $url || isset( $seen[ $url ] ) ) {
+					continue;
+				}
+
+				$seen[ $url ] = true;
+				$urls[]       = $url;
+
+				if ( count( $urls ) >= $limit ) {
+					break 2;
+				}
+			}
+
+			if ( count( $posts ) < $batch_size ) {
+				break;
+			}
+
+			$page++;
 		}
 	}
 

@@ -2,7 +2,7 @@ import React from 'react';
 import {Code2, Database, Globe, HardDrive, Server, WandSparkles, Zap} from 'lucide-react';
 import {Card, Pill} from '../components/ui.jsx';
 
-const VERSION = window.khseDashboard?.version || '4.3.1';
+const VERSION = window.khseDashboard?.version || '4.3.2';
 
 const FEATURES = [
 	{
@@ -32,10 +32,10 @@ const FEATURES = [
 ];
 
 const CHANGES = [
-	'The Preload page keeps the last run visible after the queue finishes.',
-	'Background queue shows Completed, Running, Paused, or Idle state.',
-	'A last-run summary shows dispatched pages, failures, finish time, and transport.',
-	'Successful pages stay visible after the queue drains when debug mode is on.'
+	'Preload fills the configured URL limit with unique pages.',
+	'Homepage links that overlap the latest posts no longer leave the queue short.',
+	'Scope copy explains that the per-run limit is not a full-site crawl.',
+	'Last-run state and successful pages stay visible after the queue drains.'
 ];
 
 export default function AboutView({data}) {
@@ -56,7 +56,7 @@ export default function AboutView({data}) {
 				</div>
 			</section>
 
-			<Card title="What's new in 4.3.1" description="Highlights from this release.">
+			<Card title="What's new in 4.3.2" description="Highlights from this release.">
 				<ul className="khse-bullets">
 					{CHANGES.map((change) => (
 						<li key={change}>{change}</li>

@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.3.2] - 2026-11-10
+
+### Fixed
+- Preload now fills the configured URL limit with unique pages. Homepage links that overlap the latest posts no longer leave the queue short; the builder pages through older posts until the limit is reached.
+- The Scope copy now explains that the URL limit is a per-run maximum and does not warm every published post.
+
 ## [4.3.1] - 2026-11-10
 
 ### Fixed

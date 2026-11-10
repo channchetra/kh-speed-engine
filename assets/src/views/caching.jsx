@@ -763,7 +763,7 @@ export function PreloadView({data, settings, update, actions}) {
 
 			<Card title="Scope" description="Choose what preload warms and how many URLs it processes per run.">
 				<div className="khse-scope-top">
-					<Field label="URLs per run" description="Between 1 and 1000 URLs per preload run." htmlFor="khse-preload-limit">
+					<Field label="URLs per run" description="Maximum URLs per run, up to 1000. Preload warms the homepage, discovered links, latest published content, and selected archives — not every post." htmlFor="khse-preload-limit">
 						<TextInput
 							id="khse-preload-limit"
 							type="number"

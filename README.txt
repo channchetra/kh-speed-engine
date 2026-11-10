@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.3.1
+Stable tag: 4.3.2
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -126,6 +126,11 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.3.2 (11/10/2026) =
+
+* Preload now fills the configured URL limit with unique pages instead of stopping when homepage links overlap the latest posts.
+* Scope copy explains that the per-run limit does not warm every published post.
 
 = 4.3.1 (11/10/2026) =
 
