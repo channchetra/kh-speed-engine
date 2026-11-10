@@ -37,6 +37,8 @@ test.describe('KH Speed feature tour', () => {
 		await expect(page.locator('h1')).toContainText('Preload');
 		await expect(page.getByRole('button', { name: /run preload/i }).first()).toBeVisible();
 		await expect(page.getByText('Background queue')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Scheduled preload' })).toBeVisible();
+		await expect(page.getByRole('button', { name: /scheduled queue/i })).toBeVisible();
 		await expect(page.getByRole('button', { name: /pause optional work|resume optional work/i })).toBeVisible();
 		const queueStats = page.locator('.khse-queue-dashboard');
 		await expect(queueStats.getByText('Pending', { exact: true })).toBeVisible();
@@ -103,7 +105,7 @@ test.describe('KH Speed feature tour', () => {
 		await expect(page.locator('.khse-toast')).toContainText('Homepage cache purged');
 
 		await page.getByRole('button', { name: 'Run preload' }).click();
-		await expect(page.locator('.khse-toast')).toContainText('preload URLs queued');
+		await expect(page.locator('.khse-toast')).toContainText(/preload URLs queued|scheduled preload URLs/);
 		await page.screenshot({ path: `${shots}/save-and-actions.png`, fullPage: true });
 	});
 

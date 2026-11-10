@@ -30,6 +30,11 @@ $public_root      = rtrim( str_replace( '\\', '/', ABSPATH ), '/' ) . '/';
 
 if ( 'yes' === $option_uninstall ) {
 
+	// Remove plugin cron events before dropping the queue tables.
+	wp_clear_scheduled_hook( 'khse_preload_cache_event' );
+	wp_clear_scheduled_hook( 'khse_preload_queue_event' );
+	wp_clear_scheduled_hook( 'khse_preload_runner_event' );
+
 	global $wpdb;
 
 	// Remove the durable preload queue and debug log tables.

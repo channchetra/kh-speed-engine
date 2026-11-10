@@ -164,6 +164,8 @@ function App() {
 	const actions = {
 		refresh,
 		runPreload,
+		buildScheduledPreload: () => run('khse_action_dashboard_preload_schedule_build'),
+		cancelScheduledPreload: () => run('khse_action_dashboard_preload_schedule_cancel'),
 		pausePreloadQueue: () => run('khse_action_dashboard_preload_pause'),
 		cancelPreloadJob: (jobId) => run('khse_action_dashboard_preload_cancel', {jobId}),
 		retryPreloadJob: (jobId) => run('khse_action_dashboard_preload_retry', {jobId}),

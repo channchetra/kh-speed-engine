@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Check, Code2, Play, RefreshCcw, Search, Trash2, Zap} from 'lucide-react';
+import {Check, Code2, Pause, Play, RefreshCcw, Search, Trash2, Zap} from 'lucide-react';
 import {
 	Button,
 	Card,
@@ -10,6 +10,7 @@ import {
 	Pill,
 	Progress,
 	Select,
+	Stat,
 	StatusRow,
 	Switch,
 	Textarea,
@@ -690,6 +691,129 @@ function PreloadQueue({status}) {
 	);
 }
 
+function intervalLabel(seconds) {
+	const value = Math.max(0, Number(seconds) || 0);
+
+	if (value < 60) {
+		return `${value}s`;
+	}
+
+	if (value < 3600) {
+		return `${Math.round(value / 60)} min`;
+	}
+
+	return `${Math.round(value / 3600)} h`;
+}
+
+function ScheduledPreload({status, settings, update, actions}) {
+	const scheduled = status.scheduled || {};
+	const preloadSettings = settings.preload || {};
+	const enabled = Boolean(scheduled.enabled);
+	const total = Number(scheduled.total) || 0;
+	const processed = Number(scheduled.processed) || 0;
+	const remaining = Number(scheduled.remaining) || 0;
+	const failed = Number(scheduled.failed) || 0;
+	const percent = Math.max(0, Math.min(100, Number(scheduled.percent) || 0));
+	const state = scheduled.state || 'idle';
+	const stateLabel = state === 'running' ? 'Running' : state === 'completed' ? 'Completed' : state === 'paused' ? 'Paused' : 'Idle';
+	const stateTone = state === 'running' ? 'info' : state === 'completed' ? 'success' : state === 'paused' ? 'warning' : 'neutral';
+	const runSize = Number(scheduled.runSize) || 50;
+	const interval = Number(scheduled.interval) || 60;
+	const keepWarmHours = Math.max(1, Math.round((Number(scheduled.keepWarmInterval) || 21600) / 3600));
+	const maxEntries = Number(scheduled.maxEntries) || 0;
+	const warnings = Array.isArray(scheduled.warnings) ? scheduled.warnings : [];
+	const target = Number(scheduled.target) || Number(scheduled.available) || 0;
+	const intervalMinutes = Math.max(1, Math.round((Number(preloadSettings.interval) || 60) / 60));
+	const keepWarmIntervalHours = Math.max(1, Math.round((Number(preloadSettings.keepWarmInterval) || 21600) / 3600));
+
+	return (
+		<Card
+			title="Scheduled preload"
+			description="Warm the site in batches until the cache limit or every published URL is covered."
+			action={<Pill tone={stateTone} dot>{stateLabel}</Pill>}
+		>
+			<div className="khse-kpis">
+				<Stat label="Target" value={formatNumber(target)} detail={maxEntries > 0 ? 'cache limit' : 'all published'} tone="violet" />
+				<Stat label="Processed" value={formatNumber(processed)} tone="green" />
+				<Stat label="Remaining" value={formatNumber(remaining)} tone="blue" />
+				<Stat label={state === 'completed' ? 'Keep-warm' : 'Next run'} value={state === 'completed' ? `${keepWarmHours}h` : (scheduled.nextRun || '—')} tone="cyan" />
+			</div>
+			<div className="khse-schedule-progress">
+				<Progress value={percent} tone="cyan" label="Scheduled preload progress" />
+				<span>{formatNumber(processed)} of {formatNumber(total || target)} pages · {failed > 0 ? `${formatNumber(failed)} failed` : 'no failures'}</span>
+			</div>
+			<p className="khse-note">
+				{enabled
+					? `Processes ${formatNumber(runSize)} URLs every ${intervalLabel(interval)}. ${scheduled.keepWarm ? `Keep-warm audit every ${keepWarmHours} hours.` : 'Keep-warm audit is off.'}`
+					: 'Enable scheduled preload under Scope and save to start the automatic cycle.'}
+			</p>
+			{scheduled.needsRebuild ? <p className="khse-preload-warning" role="status">Rebuild pending. It starts on the next admin request, or click Build scheduled queue now.</p> : null}
+			{warnings.map((warning) => <p className="khse-preload-warning" role="status" key={warning}>{warning}</p>)}
+			<div className="khse-inline">
+				<Button variant="primary" icon={Zap} onClick={() => actions.buildScheduledPreload()} disabled={!enabled}>
+					{total > 0 ? 'Rebuild scheduled queue' : 'Build scheduled queue'}
+				</Button>
+				{remaining > 0 ? (
+					<Button variant="secondary" icon={state === 'paused' ? Play : Pause} onClick={() => actions.pausePreloadQueue()}>
+						{state === 'paused' ? 'Resume schedule' : 'Pause schedule'}
+					</Button>
+				) : null}
+				{total > 0 ? (
+					<Button variant="danger" icon={Trash2} onClick={() => actions.cancelScheduledPreload()}>
+						Cancel
+					</Button>
+				) : null}
+			</div>
+			{total === 0 && Number(scheduled.available) > 0 ? (
+				<p className="khse-note">{formatNumber(scheduled.available)} published URLs are available. Build the queue to start warming.</p>
+			) : null}
+
+			<div className="khse-divider" />
+			<div className="khse-grid khse-grid--2">
+				<div className="khse-stack">
+					<Switch
+						label="Run preload automatically"
+						description="Process a batch on a schedule until the cache limit or all published URLs."
+						checked={Boolean(preloadSettings.schedule)}
+						onChange={(checked) => update('preload', 'schedule', checked)}
+					/>
+					<Switch
+						label="Keep cache warm"
+						description="Audit the cache and re-warm only missing or expired pages."
+						checked={Boolean(preloadSettings.keepWarm)}
+						onChange={(checked) => update('preload', 'keepWarm', checked)}
+					/>
+				</div>
+				<div className="khse-stack">
+					<Field label="Minutes between runs" description="How often the internal runner processes the next batch." htmlFor="khse-preload-interval">
+						<TextInput
+							id="khse-preload-interval"
+							type="number"
+							min="1"
+							max="60"
+							suffix="min"
+							value={intervalMinutes}
+							onChange={(event) => update('preload', 'interval', String(Math.max(1, Math.min(60, parseInt(event.target.value, 10) || 1)) * 60))}
+						/>
+					</Field>
+					<Field label="Keep-warm audit every" description="Only missing or expired pages are re-queued." htmlFor="khse-preload-keep-warm-interval">
+						<TextInput
+							id="khse-preload-keep-warm-interval"
+							type="number"
+							min="1"
+							max="168"
+							suffix="hours"
+							value={keepWarmIntervalHours}
+							onChange={(event) => update('preload', 'keepWarmInterval', String(Math.max(1, Math.min(168, parseInt(event.target.value, 10) || 6)) * 3600))}
+						/>
+					</Field>
+				</div>
+			</div>
+			<p className="khse-note">Saving settings clears the cache and rebuilds the scheduled queue from the priority URLs.</p>
+		</Card>
+	);
+}
+
 export function PreloadView({data, settings, update, actions}) {
 	const preload = settings.preload || {};
 	const status = data.preload || {};
@@ -758,6 +882,8 @@ export function PreloadView({data, settings, update, actions}) {
 					</div>
 				</div>
 			</Card>
+
+			<ScheduledPreload status={status} settings={settings} update={update} actions={actions} />
 
 			<BackgroundQueue preload={status} actions={actions} />
 

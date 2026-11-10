@@ -130,13 +130,18 @@ export function BackgroundQueue({preload, actions}) {
 			title="Background queue"
 			description="Pause optional warming and generation. Cache invalidation keeps running."
 			action={(
-				<Button
-					variant="secondary"
-					icon={paused ? Play : Pause}
-					onClick={() => actions.pausePreloadQueue()}
-				>
-					{paused ? 'Resume optional work' : 'Pause optional work'}
-				</Button>
+				<div className="khse-inline">
+					<Pill tone={preload.queueMode === 'scheduled' ? 'info' : 'neutral'}>
+						{preload.queueMode === 'scheduled' ? 'Scheduled' : 'Quick'}
+					</Pill>
+					<Button
+						variant="secondary"
+						icon={paused ? Play : Pause}
+						onClick={() => actions.pausePreloadQueue()}
+					>
+						{paused ? 'Resume optional work' : 'Pause optional work'}
+					</Button>
+				</div>
 			)}
 			padded={false}
 		>
@@ -191,6 +196,7 @@ export function BackgroundQueue({preload, actions}) {
 											<span className="khse-queue-row__title">
 												{job.id ? (open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />) : null}
 												<strong>{job.label}</strong>
+												{job.priority ? <Pill tone="warning">Priority</Pill> : null}
 											</span>
 										</td>
 										<td data-label="Status">

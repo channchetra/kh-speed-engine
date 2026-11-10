@@ -40,6 +40,10 @@ $register_clear_cache_action = array(
 	'khse_option_benchmark_footer_text',
 	'khse_option_benchmark_footer_text_display',
 	'khse_option_page_optimization',
+	'khse_option_preload_schedule',
+	'khse_option_preload_interval',
+	'khse_option_preload_keep_warm',
+	'khse_option_preload_keep_warm_interval',
 );
 
 /**

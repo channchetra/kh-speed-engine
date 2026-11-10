@@ -16,7 +16,7 @@ if ( ! defined( 'KHSE_INC' ) ) {
 }
 
 if ( ! defined( 'KHSE_PRELOAD_DB_VERSION' ) ) {
-	define( 'KHSE_PRELOAD_DB_VERSION', '2' );
+	define( 'KHSE_PRELOAD_DB_VERSION', '3' );
 }
 
 /**
@@ -164,6 +164,7 @@ function khse_preload_queue_install_table() {
 		url text NOT NULL,
 		url_hash char(64) NOT NULL,
 		status varchar(20) NOT NULL DEFAULT 'pending',
+		priority tinyint(1) NOT NULL DEFAULT 0,
 		attempts smallint(5) unsigned NOT NULL DEFAULT 0,
 		last_error varchar(255) NOT NULL DEFAULT '',
 		last_http_status smallint(6) NOT NULL DEFAULT 0,
@@ -175,7 +176,8 @@ function khse_preload_queue_install_table() {
 		updated_at bigint(20) unsigned NOT NULL DEFAULT 0,
 		PRIMARY KEY  (id),
 		UNIQUE KEY url_hash (url_hash),
-		KEY status_next (status,next_attempt)
+		KEY status_next (status,next_attempt),
+		KEY status_priority_next (status,priority,next_attempt)
 	) {$charset_collate};";
 
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
@@ -226,12 +228,13 @@ function khse_preload_queue_normalize_urls( $urls ) {
  *
  * @return int Number of inserted rows.
  */
-function khse_preload_queue_add_urls( $urls ) {
+function khse_preload_queue_add_urls( $urls, $priority = 0 ) {
 	if ( ! khse_preload_queue_store_available() ) {
 		return 0;
 	}
 
-	$urls = khse_preload_queue_normalize_urls( $urls );
+	$urls     = khse_preload_queue_normalize_urls( $urls );
+	$priority = $priority ? 1 : 0;
 
 	if ( empty( $urls ) ) {
 		return 0;
@@ -248,17 +251,18 @@ function khse_preload_queue_add_urls( $urls ) {
 		$values       = array();
 
 		foreach ( $chunk as $url ) {
-			$placeholders[] = '(%s, %s, %s, %d, %d, %d, %d)';
+			$placeholders[] = '(%s, %s, %s, %d, %d, %d, %d, %d)';
 			$values[]       = $url;
 			$values[]       = khse_preload_queue_hash_url( $url );
 			$values[]       = 'pending';
+			$values[]       = $priority;
 			$values[]       = 0;
 			$values[]       = 0;
 			$values[]       = $now;
 			$values[]       = $now;
 		}
 
-		$sql = "INSERT IGNORE INTO {$table} (url, url_hash, status, attempts, next_attempt, created_at, updated_at) VALUES " . implode( ', ', $placeholders );
+		$sql = "INSERT IGNORE INTO {$table} (url, url_hash, status, priority, attempts, next_attempt, created_at, updated_at) VALUES " . implode( ', ', $placeholders );
 
 		$suppress = $wpdb->suppress_errors( true );
 
@@ -280,12 +284,13 @@ function khse_preload_queue_add_urls( $urls ) {
 						'url'          => $url,
 						'url_hash'     => khse_preload_queue_hash_url( $url ),
 						'status'       => 'pending',
+						'priority'     => $priority,
 						'attempts'     => 0,
 						'next_attempt' => 0,
 						'created_at'   => $now,
 						'updated_at'   => $now,
 					),
-					array( '%s', '%s', '%s', '%d', '%d', '%d', '%d' )
+					array( '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%d' )
 				);
 
 				if ( $single ) {
@@ -334,6 +339,101 @@ function khse_preload_queue_replace_urls( $urls ) {
 }
 
 /**
+ * Replace the queue with a URL list, keeping priority URLs first.
+ *
+ * @param array $urls          All URLs in display/process order.
+ * @param array $priority_urls URLs that must process before the rest.
+ *
+ * @return int Number of queued URLs.
+ */
+function khse_preload_queue_replace_urls_with_priority( $urls, $priority_urls = array() ) {
+	if ( ! khse_preload_queue_store_available() ) {
+		return 0;
+	}
+
+	$urls          = khse_preload_queue_normalize_urls( $urls );
+	$priority_urls = khse_preload_queue_normalize_urls( $priority_urls );
+
+	khse_preload_queue_clear_rows();
+
+	update_option( 'khse_preload_queue_processed', 0 );
+	update_option( 'khse_preload_queue_failed', 0 );
+	update_option( 'khse_preload_queue_total', 0 );
+	update_option( 'khse_preload_queue_remaining', 0 );
+
+	$priority = array_values( array_intersect( $urls, $priority_urls ) );
+	$rest     = array_values( array_diff( $urls, $priority ) );
+	$inserted = khse_preload_queue_add_urls( $priority, 1 );
+
+	$inserted += khse_preload_queue_add_urls( $rest, 0 );
+
+	return $inserted;
+}
+
+/**
+ * Re-queue URLs ahead of the normal backlog.
+ *
+ * Existing rows for the same URL are replaced so a purged page is requested
+ * again even if it was already processed.
+ *
+ * @param array $urls URLs.
+ *
+ * @return int Number of priority rows inserted.
+ */
+function khse_preload_queue_enqueue_priority( $urls ) {
+	$urls = khse_preload_queue_normalize_urls( $urls );
+
+	if ( empty( $urls ) ) {
+		return 0;
+	}
+
+	if ( ! khse_preload_queue_store_available() ) {
+		$queue = get_transient( 'khse_preload_queue' );
+		$queue = is_array( $queue ) ? $queue : array();
+		$queue = array_values( array_unique( array_merge( $urls, $queue ) ) );
+
+		set_transient( 'khse_preload_queue', $queue, 12 * HOUR_IN_SECONDS );
+
+		$processed = (int) get_option( 'khse_preload_queue_processed', 0 );
+		$failed    = (int) get_option( 'khse_preload_queue_failed', 0 );
+
+		update_option( 'khse_preload_queue_total', $processed + $failed + count( $queue ) );
+		update_option( 'khse_preload_queue_remaining', count( $queue ) );
+
+		if ( function_exists( 'khse_schedule_preload_queue' ) ) {
+			khse_schedule_preload_queue();
+		}
+
+		return count( $urls );
+	}
+
+	global $wpdb;
+
+	$table = khse_preload_queue_table_name();
+
+	foreach ( $urls as $url ) {
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $table, array( 'url_hash' => khse_preload_queue_hash_url( $url ) ), array( '%s' ) );
+	}
+
+	$inserted = khse_preload_queue_add_urls( $urls, 1 );
+
+	khse_preload_queue_sync_counts();
+	khse_preload_queue_mirror_transient();
+
+	if ( $inserted > 0 && function_exists( 'khse_schedule_preload_queue' ) ) {
+		if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+			update_option( 'khse_preload_next_run', time() );
+			khse_ensure_preload_runner_event();
+		} else {
+			khse_schedule_preload_queue();
+		}
+	}
+
+	return $inserted;
+}
+
+/**
  * Return pending queue rows in insertion order.
  *
  * @param int $limit Maximum rows.
@@ -353,7 +453,7 @@ function khse_preload_queue_pending_rows( $limit = 25 ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$rows = $wpdb->get_results(
 		$wpdb->prepare(
-			"SELECT id, url, attempts FROM {$table} WHERE status = 'pending' AND next_attempt <= %d ORDER BY id ASC LIMIT %d",
+			"SELECT id, url, priority, attempts FROM {$table} WHERE status = 'pending' AND next_attempt <= %d ORDER BY priority DESC, id ASC LIMIT %d",
 			time(),
 			$limit
 		),

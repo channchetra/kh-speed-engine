@@ -127,6 +127,10 @@ function khse_get_settings_schema() {
 			'limit'         => array( 'option' => 'khse_option_preload_limit', 'default' => 50, 'sanitize' => 'absint', 'min' => 1, 'max' => 1000, 'read' => 'int', 'config' => 'preload.limit', 'config_type' => 'int' ),
 			'crawlHomepage' => array( 'option' => 'khse_option_preload_homepage_links', 'default' => 'yes', 'sanitize' => 'yes_no', 'fallback' => 'yes', 'read' => 'enabled', 'config' => 'preload.crawl_homepage_links', 'config_type' => 'enabled' ),
 			'homepage'      => array( 'option' => 'khse_option_post_homepage', 'default' => 'yes', 'sanitize' => 'yes_no', 'fallback' => 'yes', 'read' => 'enabled' ),
+			'schedule'      => array( 'option' => 'khse_option_preload_schedule', 'default' => 'yes', 'sanitize' => 'yes_no', 'fallback' => 'yes', 'read' => 'enabled' ),
+			'interval'      => array( 'option' => 'khse_option_preload_interval', 'default' => 60, 'sanitize' => 'absint', 'min' => 30, 'max' => 3600, 'read' => 'int' ),
+			'keepWarm'      => array( 'option' => 'khse_option_preload_keep_warm', 'default' => 'yes', 'sanitize' => 'yes_no', 'fallback' => 'yes', 'read' => 'enabled' ),
+			'keepWarmInterval' => array( 'option' => 'khse_option_preload_keep_warm_interval', 'default' => 21600, 'sanitize' => 'absint', 'min' => 3600, 'max' => 604800, 'read' => 'int' ),
 		),
 		'rules'       => array(
 			'enabled'      => array( 'option' => 'khse_option_exclusion_status', 'default' => 'no', 'sanitize' => 'yes_no', 'fallback' => 'no', 'read' => 'enabled' ),

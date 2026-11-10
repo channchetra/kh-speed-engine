@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.4.0] - 2026-11-10
+
+### Added
+- Continuous scheduled preload: a priority-first full-site queue warms 50 URLs per tick until the cache reaches Max cache entries, or until every published URL is covered when Max cache entries is 0.
+- Internal request-driven runner with a WP-Cron backup. No WP-CLI or external cron dependency.
+- Priority queue ordering: homepage, homepage links, edited pages, and media changes warm before the normal backlog.
+- Keep-warm audit every 6 hours re-queues only missing or expired pages.
+- Scheduled preload card with target, progress, next run, pause/resume, cancel, and rebuild controls.
+- Cache-limit and TTL warnings before a long cycle.
+- Media changes purge the homepage and attachment page and re-warm them as priority.
+- Plugin/theme updates, activations, deactivations, settings saves, and clear-all rebuild the scheduled queue.
+
+### Changed
+- Cache clears and settings saves defer the full-site rebuild to the next admin or cron request so admin actions stay responsive.
+- Background queue shows Scheduled/Quick mode and Priority badges.
+
 ## [4.3.2] - 2026-11-10
 
 ### Fixed

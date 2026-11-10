@@ -400,6 +400,10 @@ function khse_dashboard_get_settings_data() {
 			'postTypes'     => $preload_options['postTypes'],
 			'homepage'      => khse_get_setting( 'preload', 'homepage' ),
 			'archives'      => $preload_options['archives'],
+			'schedule'      => khse_get_setting( 'preload', 'schedule' ),
+			'interval'      => khse_get_setting( 'preload', 'interval' ),
+			'keepWarm'      => khse_get_setting( 'preload', 'keepWarm' ),
+			'keepWarmInterval' => khse_get_setting( 'preload', 'keepWarmInterval' ),
 		),
 		'performance' => $optimization,
 		'rules'       => array(
@@ -452,6 +456,49 @@ function khse_dashboard_get_status_data() {
 	);
 	$queue_last_total  = (int) $queue_last['total'];
 	$queue_state       = $queue_paused ? 'paused' : ( $queue_remaining > 0 ? 'running' : ( $queue_total > 0 || $queue_last_total > 0 ? 'completed' : 'idle' ) );
+	$scheduled_enabled = function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled();
+	$scheduled_available = function_exists( 'khse_count_scheduled_preload_urls' ) ? khse_count_scheduled_preload_urls() : 0;
+
+	if ( 'scheduled' === (string) get_option( 'khse_preload_queue_mode', '' ) ) {
+		$scheduled_available = max( $scheduled_available, $queue_last_total, $queue_total );
+	}
+
+	$scheduled_max_entries = function_exists( 'khse_get_cache_max_entries' ) ? (int) khse_get_cache_max_entries() : 0;
+	$scheduled_target  = $scheduled_max_entries > 0 ? min( $scheduled_available, $scheduled_max_entries ) : min( $scheduled_available, function_exists( 'khse_get_preload_max_urls' ) ? khse_get_preload_max_urls() : 10000 );
+	$scheduled_interval = function_exists( 'khse_get_preload_interval' ) ? khse_get_preload_interval() : 60;
+	$scheduled_next_at = (int) get_option( 'khse_preload_next_run', 0 );
+	$scheduled_next_label = $scheduled_next_at > time() ? human_time_diff( time(), $scheduled_next_at ) : __( 'now', 'kh-speed-engine' );
+	$scheduled_audit_at = (int) get_option( 'khse_preload_next_audit', 0 );
+	$scheduled_audit_label = $scheduled_audit_at > time() ? human_time_diff( time(), $scheduled_audit_at ) : __( 'not scheduled', 'kh-speed-engine' );
+	$scheduled_warnings = array();
+	$scheduled_ttl     = (int) get_option( 'khse_option_ttl', 86400 );
+	$scheduled_max_urls = function_exists( 'khse_get_preload_max_urls' ) ? khse_get_preload_max_urls() : 10000;
+
+	if ( $scheduled_max_entries <= 0 && $scheduled_available > $scheduled_max_urls ) {
+		$scheduled_warnings[] = sprintf(
+			/* translators: %s is the URL cap. */
+			__( 'This build is capped at %s URLs. Increase the cache limit or use a scheduled build strategy for larger sites.', 'kh-speed-engine' ),
+			number_format_i18n( $scheduled_max_urls )
+		);
+	}
+
+	if ( $scheduled_max_entries > 0 && $scheduled_available > $scheduled_max_entries ) {
+		$scheduled_warnings[] = sprintf(
+			/* translators: 1: cache limit, 2: available URLs. */
+			__( 'Max cache entries is %1$s. This cycle warms the first %1$s priority URLs; %2$s published URLs are outside the cache limit.', 'kh-speed-engine' ),
+			number_format_i18n( $scheduled_max_entries ),
+			number_format_i18n( max( 0, $scheduled_available - $scheduled_max_entries ) )
+		);
+	}
+
+	if ( $scheduled_ttl > 0 && $scheduled_target > 0 ) {
+		$estimated_seconds = (int) ceil( $scheduled_target / max( 1, $preload_limit ) ) * $scheduled_interval;
+
+		if ( $estimated_seconds > $scheduled_ttl ) {
+			$scheduled_warnings[] = __( 'This cycle may take longer than the cache lifetime. Early pages may expire before the cycle finishes. Enable keep-warm or increase the TTL.', 'kh-speed-engine' );
+		}
+	}
+
 	$debug_enabled     = khse_is_debug_mode();
 	$success_log       = $debug_enabled && function_exists( 'khse_preload_log_recent_by_status' ) ? khse_preload_log_recent_by_status( 'success', 50 ) : array();
 	$success_count     = $debug_enabled && function_exists( 'khse_preload_log_count_by_status' ) ? khse_preload_log_count_by_status( 'success' ) : 0;
@@ -554,6 +601,31 @@ function khse_dashboard_get_status_data() {
 				'failed'   => (int) $queue_last['failed'],
 				'mode'     => (string) $queue_last['mode'],
 				'finished' => (int) $queue_last['finished'] > 0 ? khse_dashboard_format_time( (int) $queue_last['finished'] ) : 'Never',
+			),
+			'queueMode'      => (string) get_option( 'khse_preload_queue_mode', '' ),
+			'scheduled'      => array(
+				'enabled'        => $scheduled_enabled,
+				'available'      => $scheduled_available,
+				'target'         => $scheduled_target,
+				'maxEntries'     => $scheduled_max_entries,
+				'runSize'        => $preload_limit,
+				'interval'       => $scheduled_interval,
+				'nextRunIn'      => max( 0, $scheduled_next_at - time() ),
+				'nextRun'        => $scheduled_next_label,
+				'nextAudit'      => $scheduled_audit_label,
+				'keepWarm'       => function_exists( 'khse_is_preload_keep_warm_enabled' ) && khse_is_preload_keep_warm_enabled(),
+				'keepWarmInterval' => function_exists( 'khse_get_preload_keep_warm_interval' ) ? khse_get_preload_keep_warm_interval() : 21600,
+				'needsRebuild'   => (bool) get_option( 'khse_preload_needs_rebuild', false ),
+				'lastTick'       => (int) get_option( 'khse_preload_last_tick', 0 ) > 0 ? khse_dashboard_format_time( (int) get_option( 'khse_preload_last_tick', 0 ) ) : 'Never',
+				'lastTickCount'  => (int) get_option( 'khse_preload_last_tick_count', 0 ),
+				'lastAudit'      => (int) get_option( 'khse_preload_last_audit', 0 ) > 0 ? khse_dashboard_format_time( (int) get_option( 'khse_preload_last_audit', 0 ) ) : 'Never',
+				'state'          => $queue_state,
+				'total'          => $queue_total,
+				'processed'      => $queue_processed,
+				'failed'         => $queue_failed,
+				'remaining'      => $queue_remaining,
+				'percent'        => $queue_total > 0 ? min( 100, round( ( ( $queue_processed + $queue_failed ) / max( 1, $queue_total ) ) * 100 ) ) : 0,
+				'warnings'       => $scheduled_warnings,
 			),
 			'debugEnabled'   => $debug_enabled,
 			'successLog'     => $success_log,

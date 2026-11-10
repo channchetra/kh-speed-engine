@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.3.2
+Stable tag: 4.4.0
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -126,6 +126,16 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.4.0 (11/10/2026) =
+
+* Continuous scheduled preload warms 50 URLs per tick until Max cache entries or every published URL is covered.
+* Priority-first queue ordering for the homepage, homepage links, edited pages, and media changes.
+* Internal request-driven runner and WP-Cron backup; no WP-CLI dependency.
+* Keep-warm audit every 6 hours re-queues only missing or expired pages.
+* Scheduled preload card with target, progress, next run, pause/resume, cancel, and rebuild.
+* Cache-limit and TTL warnings before a long cycle.
+* Settings saves, clear-all, and plugin/theme changes rebuild the scheduled queue.
 
 = 4.3.2 (11/10/2026) =
 

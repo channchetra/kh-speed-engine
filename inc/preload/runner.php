@@ -408,6 +408,7 @@ function khse_preload_cache( $limit = null ) {
 		update_option( 'khse_last_homepage_priority_preload_time', time() );
 		update_option( 'khse_preload_queue_started_time', time() );
 		update_option( 'khse_preload_queue_finished_time', 0 );
+		update_option( 'khse_preload_queue_mode', 'quick', false );
 		update_option( 'khse_preload_queue_last_mode', khse_preload_should_block( home_url( '/' ) ) ? 'blocking' : 'non-blocking', false );
 
 		if ( function_exists( 'khse_preload_queue_store_available' ) && khse_preload_queue_store_available() ) {
@@ -463,6 +464,17 @@ function khse_queue_critical_preload_urls( $post_id = 0, $driver = null ) {
 		foreach ( $urls as $url ) {
 			khse_purge_permalink( $url, $driver );
 		}
+	}
+
+	if ( function_exists( 'khse_preload_queue_enqueue_priority' ) ) {
+		$queued = khse_preload_queue_enqueue_priority( $urls );
+
+		if ( $queued > 0 && function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+			update_option( 'khse_preload_next_run', time() );
+			khse_ensure_preload_runner_event();
+		}
+
+		return $queued;
 	}
 
 	return khse_queue_preload_urls( $urls );

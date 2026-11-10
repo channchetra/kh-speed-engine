@@ -66,6 +66,14 @@ function khse_activation() {
 	if ( function_exists( 'khse_preload_queue_install_table' ) ) {
 		khse_preload_queue_install_table();
 	}
+
+	if ( function_exists( 'khse_ensure_preload_runner_event' ) ) {
+		khse_ensure_preload_runner_event();
+	}
+
+	if ( function_exists( 'khse_build_scheduled_preload_queue' ) && function_exists( 'khse_is_preload_runnable' ) && khse_is_preload_runnable() && function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		khse_build_scheduled_preload_queue();
+	}
 }
 
 /**
@@ -140,5 +148,6 @@ function khse_deactivation() {
 	delete_transient( 'khse_preload_queue' );
 	wp_clear_scheduled_hook( 'khse_preload_cache_event' );
 	wp_clear_scheduled_hook( 'khse_preload_queue_event' );
+	wp_clear_scheduled_hook( 'khse_preload_runner_event' );
 }
 

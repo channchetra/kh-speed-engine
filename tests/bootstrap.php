@@ -33,6 +33,10 @@ tests_add_filter( 'muplugins_loaded', '_manually_load_plugin' );
 // Start up the WP testing environment.
 require $_tests_dir . '/includes/bootstrap.php';
 
+// Keep the preload suite on the quick path unless a test explicitly enables
+// scheduled mode. The real default is on for production installs.
+add_filter( 'khse_is_scheduled_preload_enabled', '__return_false' );
+
 // Keep the suite hermetic; WordPress core update checks must not reach the network.
 add_filter(
 	'pre_http_request',

@@ -68,6 +68,7 @@ function khse_preload_queue_format_job_row( $row ) {
 		'label'          => '#' . $id . ' · ' . khse_preload_queue_job_label( isset( $row['url'] ) ? $row['url'] : '' ),
 		'url'            => esc_url_raw( isset( $row['url'] ) ? $row['url'] : '' ),
 		'status'         => $status,
+		'priority'       => isset( $row['priority'] ) ? (int) $row['priority'] : 0,
 		'attempts'       => isset( $row['attempts'] ) ? (int) $row['attempts'] : 0,
 		'updated'        => khse_preload_queue_format_time( isset( $row['updated_at'] ) ? $row['updated_at'] : 0 ),
 		'lastError'      => isset( $row['last_error'] ) ? (string) $row['last_error'] : '',
@@ -99,7 +100,7 @@ function khse_preload_queue_job( $id ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$row = $wpdb->get_row(
 		$wpdb->prepare(
-			"SELECT id, url, status, attempts, last_error, last_http_status, last_error_code, last_attempt_at, last_mode, updated_at FROM {$table} WHERE id = %d LIMIT 1",
+			"SELECT id, url, status, priority, attempts, last_error, last_http_status, last_error_code, last_attempt_at, last_mode, updated_at FROM {$table} WHERE id = %d LIMIT 1",
 			(int) $id
 		),
 		ARRAY_A
@@ -133,6 +134,7 @@ function khse_preload_queue_jobs( $limit = 20 ) {
 				'label'     => '#' . ( $index + 1 ) . ' · ' . khse_preload_queue_job_label( $url ),
 				'url'       => (string) $url,
 				'status'    => 'pending',
+				'priority'  => 0,
 				'attempts'  => 0,
 				'updated'       => '—',
 				'lastError'     => '',
@@ -155,7 +157,7 @@ function khse_preload_queue_jobs( $limit = 20 ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$rows = $wpdb->get_results(
 		$wpdb->prepare(
-			"SELECT id, url, status, attempts, last_error, last_http_status, last_error_code, last_attempt_at, last_mode, updated_at FROM {$table} ORDER BY CASE status WHEN 'processing' THEN 0 WHEN 'pending' THEN 1 WHEN 'failed' THEN 2 ELSE 3 END, id ASC LIMIT %d",
+			"SELECT id, url, status, priority, attempts, last_error, last_http_status, last_error_code, last_attempt_at, last_mode, updated_at FROM {$table} ORDER BY CASE status WHEN 'processing' THEN 0 WHEN 'pending' THEN 1 WHEN 'failed' THEN 2 ELSE 3 END, priority DESC, id ASC LIMIT %d",
 			$limit
 		),
 		ARRAY_A

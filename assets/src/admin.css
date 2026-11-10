@@ -3805,3 +3805,17 @@ body.folded .khse-savebar {
 .khse-queue-summary strong {
 	color: var(--khse-ink);
 }
+
+/* Scheduled preload */
+
+.khse-schedule-progress {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 16px 0 12px;
+}
+
+.khse-schedule-progress span {
+	color: var(--khse-muted);
+	font-size: 11.5px;
+}

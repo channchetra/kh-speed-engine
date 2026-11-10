@@ -15,6 +15,12 @@ add_action( 'transition_post_status', 'khse_update_post_status', 10, 3 );
 add_action( 'wp_trash_post', 'khse_purge_post_before_trash', 10, 2 );
 add_action( 'before_delete_post', 'khse_delete_post', 10, 2 );
 add_action( 'set_object_terms', 'khse_update_post_terms', 10, 6 );
+add_action( 'add_attachment', 'khse_update_attachment', 10, 1 );
+add_action( 'edit_attachment', 'khse_update_attachment', 10, 1 );
+add_action( 'upgrader_process_complete', 'khse_handle_plugin_theme_change', 10, 2 );
+add_action( 'activated_plugin', 'khse_handle_plugin_theme_change', 10, 0 );
+add_action( 'deactivated_plugin', 'khse_handle_plugin_theme_change', 10, 0 );
+add_action( 'switch_theme', 'khse_handle_plugin_theme_change', 10, 0 );
 add_filter( 'post_updated_messages', 'khse_notice_after_update_post' );
 
 /**
@@ -188,7 +194,79 @@ function khse_purge_post_before_trash( $post_ID, $previous_status = '' ) {
  * @return void
  */
 function khse_delete_post( $post_ID, $post = null ) {
+	if ( ! $post ) {
+		$post = get_post( $post_ID );
+	}
+
+	if ( $post && 'attachment' === $post->post_type ) {
+		$driver = khse_get_active_driver();
+
+		if ( is_wp_error( $driver ) ) {
+			$driver = null;
+		}
+
+		khse_purge_post_cache_once( $post_ID, $post, $driver );
+		return;
+	}
+
 	khse_purge_post_after_change( $post_ID, $post );
+}
+
+/**
+ * Purge and re-warm media changes.
+ *
+ * @param int $post_id Attachment ID.
+ *
+ * @return void
+ */
+function khse_update_attachment( $post_id ) {
+	if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+		return;
+	}
+
+	$post = get_post( $post_id );
+
+	if ( ! $post || 'attachment' !== $post->post_type ) {
+		return;
+	}
+
+	$driver = khse_get_active_driver();
+
+	if ( is_wp_error( $driver ) ) {
+		$driver = null;
+	}
+
+	khse_purge_post_cache_once( $post_id, $post, $driver );
+}
+
+/**
+ * Clear the whole cache when a plugin or theme changes.
+ *
+ * Debounced because bulk updates fire several hooks in a row.
+ *
+ * @param mixed $upgrader   Upgrader instance or plugin file.
+ * @param array $hook_extra Extra upgrade context.
+ *
+ * @return void
+ */
+function khse_handle_plugin_theme_change( $upgrader = null, $hook_extra = array() ) {
+	if ( ! function_exists( 'khse_clear_all_cache' ) || ! khse_is_preload_runnable() ) {
+		return;
+	}
+
+	if ( is_array( $hook_extra ) && ! empty( $hook_extra['type'] ) && ! in_array( $hook_extra['type'], array( 'plugin', 'theme' ), true ) ) {
+		return;
+	}
+
+	if ( get_transient( 'khse_preload_invalidation_lock' ) ) {
+		return;
+	}
+
+	set_transient( 'khse_preload_invalidation_lock', 1, 30 );
+
+	khse_clear_all_cache();
+
+	delete_transient( 'khse_preload_invalidation_lock' );
 }
 
 /**

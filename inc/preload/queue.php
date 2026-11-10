@@ -85,6 +85,16 @@ function khse_schedule_preload_cache( $force = false ) {
 		return;
 	}
 
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		if ( $force || ! khse_preload_queue_has_pending() || ! khse_is_scheduled_preload_queue() ) {
+			khse_build_scheduled_preload_queue();
+		} else {
+			khse_ensure_preload_runner_event();
+		}
+
+		return;
+	}
+
 	$build_now = $force || ! khse_preload_should_block( home_url( '/' ) ) || (bool) apply_filters( 'khse_preload_build_immediately', false );
 
 	if ( $build_now ) {
@@ -112,6 +122,11 @@ function khse_schedule_preload_cache( $force = false ) {
  */
 function khse_schedule_preload_queue( $delay = 15 ) {
 	if ( ! function_exists( 'wp_schedule_single_event' ) || ! khse_is_preload_runnable() || khse_is_preload_queue_paused() ) {
+		return;
+	}
+
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		khse_ensure_preload_runner_event();
 		return;
 	}
 
@@ -187,6 +202,11 @@ function khse_get_preload_token() {
  * @return void
  */
 function khse_admin_drain_preload_queue() {
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		// The scheduled runner owns the cadence in scheduled mode.
+		return;
+	}
+
 	if ( ! is_admin() && ! ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
 		return;
 	}
@@ -219,6 +239,10 @@ function khse_admin_drain_preload_queue() {
  * @return bool
  */
 function khse_preload_can_drain_inline() {
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		return false;
+	}
+
 	return khse_is_preload_runnable() && ! khse_is_preload_queue_paused() && ! khse_preload_should_block( home_url( '/' ) );
 }
 
@@ -259,7 +283,17 @@ function khse_drain_preload_queue_inline( $max_seconds = 10 ) {
  * @return void
  */
 function khse_kick_preload_queue() {
-	if ( ! khse_is_preload_runnable() || khse_is_preload_queue_paused() || ! function_exists( 'wp_remote_post' ) ) {
+	if ( ! khse_is_preload_runnable() || khse_is_preload_queue_paused() ) {
+		return;
+	}
+
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		update_option( 'khse_preload_next_run', time() );
+		khse_ensure_preload_runner_event();
+		return;
+	}
+
+	if ( ! function_exists( 'wp_remote_post' ) ) {
 		return;
 	}
 
@@ -535,6 +569,11 @@ function khse_maybe_schedule_preload_cache() {
 	}
 
 	if ( khse_is_preload_queue_paused() ) {
+		return;
+	}
+
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		khse_ensure_preload_runner_event();
 		return;
 	}
 
@@ -894,9 +933,8 @@ function khse_process_preload_batch( $queue ) {
 if ( function_exists( 'add_action' ) ) {
 	// Recover the preload event after deployments that keep the option enabled.
 	add_action( 'init', 'khse_maybe_schedule_preload_cache', 20 );
-	// Cache clears ask preload to warm the site again without purger knowing
-	// anything about the preload subsystem.
-	add_action( 'khse_cache_cleared', 'khse_schedule_preload_cache' );
+	// Cache clears are handled by schedule.php so scheduled mode can rebuild
+	// the full queue while quick mode keeps its existing behavior.
 	add_action( 'khse_preload_queue_event', 'khse_process_preload_queue' );
 	add_action( 'wp_ajax_nopriv_khse_preload_batch', 'khse_ajax_preload_batch' );
 	add_action( 'wp_ajax_khse_preload_batch', 'khse_ajax_preload_batch' );

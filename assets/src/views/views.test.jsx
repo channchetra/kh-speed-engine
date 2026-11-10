@@ -226,6 +226,52 @@ describe('admin views render server-side', () => {
 		expect(markup).toContain('Preloaded pages');
 	});
 
+	it('renders scheduled preload progress and controls', () => {
+		const scheduledData = {
+			...data,
+			preload: {
+				...data.preload,
+				queueTotal: 4000,
+				queueProcessed: 50,
+				queueRemaining: 3950,
+				queueState: 'running',
+				queueMode: 'scheduled',
+				scheduled: {
+					enabled: true,
+					available: 4231,
+					target: 4000,
+					maxEntries: 0,
+					runSize: 50,
+					interval: 60,
+					nextRun: '42 seconds',
+					keepWarm: true,
+					keepWarmInterval: 21600,
+					state: 'running',
+					total: 4000,
+					processed: 50,
+					failed: 0,
+					remaining: 3950,
+					percent: 1,
+					warnings: []
+				}
+			}
+		};
+		const scheduledSettings = {
+			...settings,
+			cache: {...settings.cache, cachingStatus: true},
+			preload: {...settings.preload, enabled: true, schedule: true, interval: 60, keepWarm: true, keepWarmInterval: 21600}
+		};
+
+		const markup = text(
+			<PreloadView data={scheduledData} settings={scheduledSettings} update={noop} actions={actions} />
+		);
+
+		expect(markup).toContain('Scheduled preload');
+		expect(markup).toContain('Rebuild scheduled queue');
+		expect(markup).toContain('Pause schedule');
+		expect(markup).toContain('42 seconds');
+	});
+
 	it('renders system, proxy, and preload diagnostics', () => {
 		const debugData = {
 			debugEnabled: true,

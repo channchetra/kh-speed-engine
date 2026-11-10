@@ -26,6 +26,8 @@ add_action( 'wp_ajax_khse_action_dashboard_clear_cache', 'khse_ajax_dashboard_cl
 add_action( 'wp_ajax_khse_action_dashboard_clear_cache_type', 'khse_ajax_dashboard_clear_cache_type_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_reports', 'khse_ajax_dashboard_reports_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_preload', 'khse_ajax_dashboard_preload_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_preload_schedule_build', 'khse_ajax_dashboard_preload_schedule_build_callback' );
+add_action( 'wp_ajax_khse_action_dashboard_preload_schedule_cancel', 'khse_ajax_dashboard_preload_schedule_cancel_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_preload_pause', 'khse_ajax_dashboard_preload_pause_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_preload_cancel', 'khse_ajax_dashboard_preload_cancel_callback' );
 add_action( 'wp_ajax_khse_action_dashboard_preload_retry', 'khse_ajax_dashboard_preload_retry_callback' );
@@ -83,13 +85,23 @@ function khse_ajax_clear_cache_response() {
 
 	$rows = khse_clear_all_cache();
 
+	$message = sprintf(
+		/* translators: %s is the number of rows. */
+		__( '%s rows deleted. Background preload queued.', 'kh-speed-engine' ),
+		$rows
+	);
+
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		$message = sprintf(
+			/* translators: %s is the number of rows. */
+			__( '%s rows deleted. Scheduled preload will rebuild on the next request.', 'kh-speed-engine' ),
+			$rows
+		);
+	}
+
 	wp_send_json_success(
 		array(
-			'message' => sprintf(
-				/* translators: %s is the number of rows. */
-				__( '%s rows deleted. Background preload queued.', 'kh-speed-engine' ),
-				$rows
-			),
+			'message' => $message,
 			'rows'    => $rows,
 			'status'  => khse_dashboard_get_status_data(),
 		)
@@ -504,6 +516,26 @@ function khse_ajax_dashboard_preload_callback() {
 		);
 	}
 
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		if ( ! khse_preload_queue_has_pending() ) {
+			khse_build_scheduled_preload_queue();
+		}
+
+		update_option( 'khse_preload_next_run', time(), false );
+		$processed = khse_run_scheduled_preload_tick( khse_get_scheduled_preload_run_size(), 10 );
+
+		wp_send_json_success(
+			array(
+				'message' => sprintf(
+					/* translators: %s is the number of processed URLs. */
+					__( 'Processed %s scheduled preload URLs.', 'kh-speed-engine' ),
+					$processed
+				),
+				'status'  => khse_dashboard_get_status_data(),
+			)
+		);
+	}
+
 	$count = khse_preload_cache();
 
 	wp_send_json_success(
@@ -513,6 +545,62 @@ function khse_ajax_dashboard_preload_callback() {
 				__( '%s preload URLs queued for background processing.', 'kh-speed-engine' ),
 				$count
 			),
+			'status'  => khse_dashboard_get_status_data(),
+		)
+	);
+}
+
+/**
+ * Build or rebuild the scheduled preload queue.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_preload_schedule_build_callback() {
+	khse_ajax_dashboard_guard();
+
+	if ( ! khse_is_scheduled_preload_enabled() ) {
+		wp_send_json_error(
+			array(
+				'message' => __( 'Enable scheduled preload before building the queue.', 'kh-speed-engine' ),
+			)
+		);
+	}
+
+	$count = khse_build_scheduled_preload_queue();
+
+	if ( $count <= 0 ) {
+		wp_send_json_error(
+			array(
+				'message' => __( 'No published URLs were found for the scheduled queue.', 'kh-speed-engine' ),
+			)
+		);
+	}
+
+	wp_send_json_success(
+		array(
+			'message' => sprintf(
+				/* translators: %s is the number of queued URLs. */
+				__( '%s scheduled preload URLs queued.', 'kh-speed-engine' ),
+				$count
+			),
+			'status'  => khse_dashboard_get_status_data(),
+		)
+	);
+}
+
+/**
+ * Cancel the scheduled preload queue.
+ *
+ * @return void
+ */
+function khse_ajax_dashboard_preload_schedule_cancel_callback() {
+	khse_ajax_dashboard_guard();
+
+	khse_reset_scheduled_preload_state();
+
+	wp_send_json_success(
+		array(
+			'message' => __( 'Scheduled preload queue cancelled.', 'kh-speed-engine' ),
 			'status'  => khse_dashboard_get_status_data(),
 		)
 	);
@@ -531,6 +619,10 @@ function khse_ajax_dashboard_preload_pause_callback() {
 	khse_set_preload_queue_paused( ! $paused );
 
 	if ( $paused ) {
+		if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+			update_option( 'khse_preload_next_run', time(), false );
+		}
+
 		khse_schedule_preload_queue();
 		khse_kick_preload_queue();
 	}
@@ -609,6 +701,23 @@ function khse_ajax_dashboard_purge_homepage_callback() {
 	khse_ajax_dashboard_guard();
 
 	khse_purge_cache_uri( '/' );
+
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() ) {
+		$count = khse_preload_queue_enqueue_priority( array( home_url( '/' ) ) );
+		update_option( 'khse_preload_next_run', time(), false );
+
+		wp_send_json_success(
+			array(
+				'message' => sprintf(
+					/* translators: %s is the number of queued URLs. */
+					__( 'Homepage cache purged. %s priority re-warm URL queued.', 'kh-speed-engine' ),
+					$count
+				),
+				'status'  => khse_dashboard_get_status_data(),
+			)
+		);
+	}
+
 	$count = khse_preload_cache();
 
 	wp_send_json_success(
