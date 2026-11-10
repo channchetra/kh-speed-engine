@@ -747,6 +747,12 @@ function ScheduledPreload({status, settings, update, actions}) {
 					? `Processes ${formatNumber(runSize)} URLs per run and continues with the next run while work remains. ${scheduled.keepWarm ? `Keep-warm audit every ${keepWarmHours} hours.` : 'Keep-warm audit is off.'}`
 					: 'Enable scheduled preload under Scope and save to start the automatic cycle.'}
 			</p>
+			{enabled ? (
+				<p className="khse-note">
+					Last tick: {scheduled.lastTick || 'Never'}{Number(scheduled.lastTickCount) > 0 ? ` · ${formatNumber(scheduled.lastTickCount)} URLs` : ''}.
+					Admin page loads and Run preload process a full run; front-end requests process a 5-URL fallback.
+				</p>
+			) : null}
 			{total > 0 && scheduled.lastTick === 'Never' ? (
 				<p className="khse-preload-warning" role="status">The background runner has not reported a run yet. Admin page loads process a run now; enable Process on page requests for front-end runs.</p>
 			) : null}

@@ -94,7 +94,7 @@ function khse_is_scheduled_preload_queue() {
  * @return void
  */
 function khse_ensure_preload_runner_event() {
-	if ( ! function_exists( 'wp_next_scheduled' ) || ! function_exists( 'wp_schedule_event' ) ) {
+	if ( ! function_exists( 'wp_next_scheduled' ) || ! function_exists( 'wp_schedule_single_event' ) ) {
 		return;
 	}
 
@@ -102,23 +102,7 @@ function khse_ensure_preload_runner_event() {
 		return;
 	}
 
-	wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'khse_preload_five_minutes', 'khse_preload_runner_event' );
-}
-
-/**
- * Add the five-minute cron schedule used as a runner backup.
- *
- * @param array $schedules Cron schedules.
- *
- * @return array
- */
-function khse_add_preload_cron_schedule( $schedules ) {
-	$schedules['khse_preload_five_minutes'] = array(
-		'interval' => 5 * MINUTE_IN_SECONDS,
-		'display'  => __( 'Every 5 minutes', 'kh-speed-engine' ),
-	);
-
-	return $schedules;
+	wp_schedule_single_event( time() + 5 * MINUTE_IN_SECONDS, 'khse_preload_runner_event' );
 }
 
 /**
@@ -378,6 +362,10 @@ function khse_preload_scheduler_tick() {
 		update_option( 'khse_preload_next_run', $now + khse_get_preload_interval() );
 	}
 
+	if ( khse_preload_queue_has_pending() ) {
+		khse_ensure_preload_runner_event();
+	}
+
 	delete_transient( 'khse_preload_scheduler_lock' );
 }
 
@@ -589,7 +577,6 @@ function khse_maybe_build_scheduled_preload_queue() {
 }
 
 if ( function_exists( 'add_action' ) ) {
-	add_filter( 'cron_schedules', 'khse_add_preload_cron_schedule' );
 	add_action( 'khse_preload_runner_event', 'khse_preload_scheduler_tick' );
 	add_action( 'shutdown', 'khse_preload_scheduler_tick', 20 );
 	add_action( 'admin_init', 'khse_maybe_build_scheduled_preload_queue', 20 );

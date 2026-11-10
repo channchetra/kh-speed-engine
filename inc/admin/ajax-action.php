@@ -272,6 +272,14 @@ function khse_ajax_dashboard_status_callback() {
 		khse_drain_preload_queue_inline( 10 );
 	}
 
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() && khse_is_preload_runnable() && ! khse_is_preload_queue_paused() ) {
+		$next_run = (int) get_option( 'khse_preload_next_run', 0 );
+
+		if ( $next_run <= time() && khse_preload_queue_has_pending() ) {
+			khse_run_scheduled_preload_tick( min( 5, khse_get_scheduled_preload_run_size() ), 60 );
+		}
+	}
+
 	wp_send_json_success(
 		array(
 			'status' => khse_dashboard_get_status_data(),
@@ -577,14 +585,15 @@ function khse_ajax_dashboard_preload_schedule_build_callback() {
 	}
 
 	update_option( 'khse_preload_next_run', time() );
-	khse_kick_scheduled_runner();
+	$processed = khse_run_scheduled_preload_tick( khse_get_scheduled_preload_run_size(), 120 );
 
 	wp_send_json_success(
 		array(
 			'message' => sprintf(
-				/* translators: %s is the number of queued URLs. */
-				__( '%s scheduled preload URLs queued. The background runner is starting.', 'kh-speed-engine' ),
-				$count
+				/* translators: 1: queued URLs, 2: processed URLs. */
+				__( '%1$s scheduled preload URLs queued. %2$s processed.', 'kh-speed-engine' ),
+				$count,
+				$processed
 			),
 			'status'  => khse_dashboard_get_status_data(),
 		)
@@ -745,6 +754,14 @@ function khse_ajax_dashboard_system_debug_callback() {
 
 	if ( function_exists( 'khse_preload_can_drain_inline' ) && khse_preload_can_drain_inline() ) {
 		khse_drain_preload_queue_inline( 10 );
+	}
+
+	if ( function_exists( 'khse_is_scheduled_preload_enabled' ) && khse_is_scheduled_preload_enabled() && khse_is_preload_runnable() && ! khse_is_preload_queue_paused() ) {
+		$next_run = (int) get_option( 'khse_preload_next_run', 0 );
+
+		if ( $next_run <= time() && khse_preload_queue_has_pending() ) {
+			khse_run_scheduled_preload_tick( min( 5, khse_get_scheduled_preload_run_size() ), 60 );
+		}
 	}
 
 	wp_send_json_success( khse_get_system_debug_data() );

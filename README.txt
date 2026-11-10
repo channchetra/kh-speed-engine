@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.4.3
+Stable tag: 4.4.4
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -126,6 +126,13 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.4.4 (11/10/2026) =
+
+* Rebuilding the scheduled queue processes the first run inline.
+* Dashboard refreshes and diagnostics downloads process a small due batch.
+* The WP-Cron backup uses a single event.
+* Show the last scheduled tick and the front-end fallback behavior.
 
 = 4.4.3 (11/10/2026) =
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.4.4] - 2026-11-10
+
+### Fixed
+- Rebuilding the scheduled queue now processes the first run inline, so it starts even when the loopback runner is blocked.
+- Dashboard status refreshes and diagnostics downloads process a small due batch, so the React dashboard advances without a full page reload.
+- The WP-Cron backup now uses a single event instead of a custom recurrence, so it is scheduled even when another plugin rebuilds the cron schedule list.
+- The Scheduled preload card shows the last tick and explains the 5-URL front-end fallback.
+
 ## [4.4.3] - 2026-11-10
 
 ### Fixed
