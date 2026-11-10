@@ -291,6 +291,72 @@ function khse_preload_log_for_job( $job_id, $limit = 20 ) {
 }
 
 /**
+ * Return recent attempts with one status.
+ *
+ * @param string $status success, retry, failed, or skipped.
+ * @param int    $limit  Maximum rows.
+ *
+ * @return array
+ */
+function khse_preload_log_recent_by_status( $status, $limit = 50 ) {
+	if ( ! khse_preload_queue_store_available() ) {
+		return array();
+	}
+
+	$table = khse_preload_log_table_name();
+
+	if ( '' === $table || ! khse_preload_log_table_exists() ) {
+		return array();
+	}
+
+	global $wpdb;
+
+	$limit = max( 1, min( 200, (int) $limit ) );
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$rows = $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT id, job_id, url, attempt, status, http_status, error_code, error_message, mode, duration_ms, created_at FROM {$table} WHERE status = %s ORDER BY id DESC LIMIT %d",
+			(string) $status,
+			$limit
+		),
+		ARRAY_A
+	);
+
+	$logs = array();
+
+	foreach ( (array) $rows as $row ) {
+		$logs[] = khse_preload_log_format_row( $row );
+	}
+
+	return $logs;
+}
+
+/**
+ * Count attempts with one status.
+ *
+ * @param string $status success, retry, failed, or skipped.
+ *
+ * @return int
+ */
+function khse_preload_log_count_by_status( $status ) {
+	if ( ! khse_preload_queue_store_available() ) {
+		return 0;
+	}
+
+	$table = khse_preload_log_table_name();
+
+	if ( '' === $table || ! khse_preload_log_table_exists() ) {
+		return 0;
+	}
+
+	global $wpdb;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s", (string) $status ) );
+}
+
+/**
  * Clear all preload debug attempts.
  *
  * @return void

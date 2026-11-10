@@ -83,6 +83,9 @@ export function BackgroundQueue({preload, actions}) {
 	const failed = Number(preload.queueFailed) || 0;
 	const paused = Boolean(preload.queuePaused);
 	const jobs = Array.isArray(preload.queueJobs) ? preload.queueJobs : [];
+	const successLog = Array.isArray(preload.successLog) ? preload.successLog : [];
+	const successCount = Number(preload.successCount) || 0;
+	const jobCount = Number(preload.queueJobCount) || jobs.length;
 	const state = paused ? 'Paused' : 'Running';
 	const [openId, setOpenId] = useState(0);
 	const [details, setDetails] = useState({});
@@ -213,7 +216,44 @@ export function BackgroundQueue({preload, actions}) {
 						)}
 					</tbody>
 				</table>
+				{jobs.length < jobCount ? (
+					<p className="khse-queue-showing">Showing {formatNumber(jobs.length)} of {formatNumber(jobCount)} current jobs.</p>
+				) : null}
 			</div>
+			{preload.debugEnabled ? (
+				<div className="khse-queue-success">
+					<div className="khse-queue-success__head">
+						<h3 className="khse-queue-success__title">Preloaded pages</h3>
+						<Pill tone="success">{formatNumber(successCount)} successful</Pill>
+					</div>
+					{successLog.length ? (
+						<div className="khse-table-wrap">
+							<table className="khse-table">
+								<thead>
+									<tr>
+										<th>Time</th>
+										<th>Page</th>
+										<th>HTTP</th>
+										<th>Duration</th>
+									</tr>
+								</thead>
+								<tbody>
+									{successLog.map((log) => (
+										<tr key={log.id}>
+											<td data-label="Time">{log.createdAt}</td>
+											<td data-label="Page"><strong>{log.label}</strong></td>
+											<td data-label="HTTP">{log.httpStatus || '—'}</td>
+											<td data-label="Duration">{log.durationMs ? `${formatNumber(log.durationMs)} ms` : '—'}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					) : (
+						<p className="khse-note">No successful preload attempts recorded yet. Run preload while debug mode is on.</p>
+					)}
+				</div>
+			) : null}
 		</Card>
 	);
 }

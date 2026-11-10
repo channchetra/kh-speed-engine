@@ -167,8 +167,14 @@ describe('admin views render server-side', () => {
 				queueRunning: 0,
 				queueFailed: 1,
 				queuePaused: false,
+				queueJobCount: 1,
+				debugEnabled: true,
+				successCount: 1,
+				successLog: [
+					{id: 9, label: '/cached-page/', httpStatus: 200, durationMs: 42, createdAt: '2026-11-10 10:00:00'}
+				],
 				queueJobs: [
-					{id: 4, label: '#4 · /about/', status: 'failed', attempts: 3, updated: '2026-11-06 15:26:09', canRetry: true, canCancel: true}
+					{id: 4, label: '#4 · /about/', status: 'failed', attempts: 3, updated: '2026-11-06 15:26:09', canRetry: true, canCancel: true, lastError: 'HTTP 404 Not Found; the URL is not public or no longer exists.', lastHttpStatus: 404, lastErrorCode: 'http_404', lastMode: 'blocking', lastAttempt: '2026-11-06 15:26:09'}
 				]
 			}
 		};
@@ -182,6 +188,8 @@ describe('admin views render server-side', () => {
 		expect(markup).toContain('#4 · /about/');
 		expect(markup).toContain('Retry');
 		expect(markup).toContain('Cancel');
+		expect(markup).toContain('Preloaded pages');
+		expect(markup).toContain('/cached-page/');
 	});
 
 	it('renders system, proxy, and preload diagnostics', () => {

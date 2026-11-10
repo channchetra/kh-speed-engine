@@ -3760,3 +3760,33 @@ body.folded .khse-savebar {
 		grid-template-columns: minmax(0, 1fr);
 	}
 }
+
+/* Background queue: showing count and successful pages */
+
+.khse-queue-showing {
+	margin: 0;
+	border-top: 1px solid var(--khse-line);
+	padding: 10px 20px;
+	color: var(--khse-muted);
+	font-size: 11.5px;
+}
+
+.khse-queue-success {
+	border-top: 1px solid var(--khse-line);
+	padding: 18px 20px 20px;
+}
+
+.khse-queue-success__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 10px;
+}
+
+.khse-queue-success__title {
+	margin: 0;
+	color: var(--khse-ink);
+	font-size: 13px;
+	font-weight: 700;
+}

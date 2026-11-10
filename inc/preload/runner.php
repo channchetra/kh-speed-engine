@@ -20,12 +20,22 @@ if ( ! defined( 'KHSE_INC' ) ) {
  * @return bool
  */
 function khse_preload_host_is_private_network( $host ) {
-	$resolved = gethostbyname( (string) $host );
+	static $results = array();
 
-	return (bool) (
+	$host = strtolower( trim( (string) $host ) );
+
+	if ( isset( $results[ $host ] ) ) {
+		return $results[ $host ];
+	}
+
+	$resolved = gethostbyname( $host );
+
+	$results[ $host ] = (bool) (
 		filter_var( $resolved, FILTER_VALIDATE_IP ) &&
 		! filter_var( $resolved, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE )
 	);
+
+	return $results[ $host ];
 }
 
 /**
@@ -384,6 +394,8 @@ function khse_preload_cache( $limit = null ) {
 		return 0;
 	}
 
+	$queued = 0;
+
 	try {
 		$limit = khse_get_preload_limit( $limit );
 		delete_transient( 'khse_homepage_discovered_urls' );
@@ -410,11 +422,15 @@ function khse_preload_cache( $limit = null ) {
 		}
 
 		khse_schedule_preload_queue();
-
-		return $queued;
 	} finally {
 		khse_release_preload_lock();
 	}
+
+	if ( $queued > 0 && function_exists( 'khse_preload_can_drain_inline' ) && khse_preload_can_drain_inline() ) {
+		khse_drain_preload_queue_inline( 10 );
+	}
+
+	return $queued;
 }
 
 /**

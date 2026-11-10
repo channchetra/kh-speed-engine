@@ -85,12 +85,15 @@ function khse_schedule_preload_cache( $force = false ) {
 		return;
 	}
 
-	if ( $force ) {
+	$build_now = $force || ! khse_preload_should_block( home_url( '/' ) ) || (bool) apply_filters( 'khse_preload_build_immediately', false );
+
+	if ( $build_now ) {
 		if ( function_exists( 'wp_clear_scheduled_hook' ) ) {
 			wp_clear_scheduled_hook( 'khse_preload_cache_event' );
 		}
 
-		// Build and queue immediately; admin shutdown drains the first batches.
+		// Build immediately on internal/private hosts. Public hosts keep the
+		// deferred build so a cache clear does not wait on external requests.
 		khse_preload_cache();
 		return;
 	}
@@ -205,6 +208,49 @@ function khse_admin_drain_preload_queue() {
 			break;
 		}
 	}
+}
+
+/**
+ * Whether the current host can be drained inside the current request.
+ *
+ * Private/loopback targets use non-blocking dispatch, so draining inline is
+ * fast and does not risk a public-host blocking request.
+ *
+ * @return bool
+ */
+function khse_preload_can_drain_inline() {
+	return khse_is_preload_runnable() && ! khse_is_preload_queue_paused() && ! khse_preload_should_block( home_url( '/' ) );
+}
+
+/**
+ * Process pending work inside the current request, with a time budget.
+ *
+ * This is the reliable trigger for Docker/private hosts where WP-Cron and
+ * loopback requests are not dependable.
+ *
+ * @param int $max_seconds Maximum time budget.
+ *
+ * @return int Number of attempted URLs.
+ */
+function khse_drain_preload_queue_inline( $max_seconds = 10 ) {
+	if ( ! khse_preload_can_drain_inline() || ! khse_preload_queue_has_pending() ) {
+		return 0;
+	}
+
+	$started   = microtime( true );
+	$processed = 0;
+	$budget    = max( 1, min( 30, (int) $max_seconds ) );
+
+	while ( ( microtime( true ) - $started ) < $budget ) {
+		$count = khse_process_preload_queue();
+		$processed += (int) $count;
+
+		if ( $count <= 0 || ! khse_preload_queue_has_pending() ) {
+			break;
+		}
+	}
+
+	return $processed;
 }
 
 /**

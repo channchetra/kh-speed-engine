@@ -256,6 +256,10 @@ function khse_ajax_purge_current_page_callback() {
 function khse_ajax_dashboard_status_callback() {
 	khse_ajax_dashboard_guard();
 
+	if ( function_exists( 'khse_preload_can_drain_inline' ) && khse_preload_can_drain_inline() ) {
+		khse_drain_preload_queue_inline( 10 );
+	}
+
 	wp_send_json_success(
 		array(
 			'status' => khse_dashboard_get_status_data(),
@@ -626,6 +630,10 @@ function khse_ajax_dashboard_purge_homepage_callback() {
  */
 function khse_ajax_dashboard_system_debug_callback() {
 	khse_ajax_dashboard_guard();
+
+	if ( function_exists( 'khse_preload_can_drain_inline' ) && khse_preload_can_drain_inline() ) {
+		khse_drain_preload_queue_inline( 10 );
+	}
 
 	wp_send_json_success( khse_get_system_debug_data() );
 }

@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.3.0] - 2026-11-10
+
+### Added
+- Background queue now shows the successful preload pages when debug mode is on, with time, URL, HTTP status, and duration.
+- Current job count and a “showing X of Y” note make large pending queues easier to understand.
+
+### Fixed
+- Clearing the cache now builds and starts preload immediately on private/loopback hosts instead of waiting for WP-Cron or a loopback event.
+- Dashboard status and System & Debug requests drain pending private-host preload queues inline, so a missing or blocked WP-Cron event no longer strands the queue.
+- Preload page listings now include up to 50 current jobs.
+
 ## [4.2.2] - 2026-11-09
 
 ### Fixed

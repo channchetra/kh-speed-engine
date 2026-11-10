@@ -1,6 +1,6 @@
 {
   "name": "kh-speed-engine",
-  "version": "4.2.2",
+  "version": "4.3.0",
   "private": true,
   "type": "module",
   "description": "Build tooling and optional local optimizers for the KH Speed Engine WordPress plugin.",

@@ -4,7 +4,7 @@ Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 5.8
 Tested up to: 6.9.4
-Stable tag: 4.2.2
+Stable tag: 4.3.0
 Requires PHP: 7.1.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl.html
@@ -126,6 +126,13 @@ If there is no debug message in the source code, or if the cache status consiste
 Japanese (ja_JP) by [Colocal](https://colocal.com).
 
 == Changelog ==
+
+= 4.3.0 (11/10/2026) =
+
+* Clearing cache on a private/container host now builds and starts preload immediately.
+* Dashboard and System & Debug requests drain pending private-host queues inline.
+* Background queue shows successful preload pages when debug mode is on.
+* Show up to 50 current jobs with a “showing X of Y” note.
 
 = 4.2.2 (11/9/2026) =
 
