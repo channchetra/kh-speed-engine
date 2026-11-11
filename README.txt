@@ -3,7 +3,7 @@
 Contributors: chetrachann
 Tags: cache, redis, mongodb, memcached, apc, apcu
 Requires at least: 6.2
-Tested up to: 6.9.4
+Tested up to: 7.1.4
 Stable tag: 4.5.0
 Requires PHP: 8.1
 License: GPLv3 or later
@@ -27,7 +27,8 @@ First release date: October, 1, 2020
 * Vite-built React admin console with a self-hosted Google Sans design system, live status, a URL cache checker, requirement checks, and one-click actions.
 * Optional Redis and File cache compression.
 * Optional Nginx direct static cache for the File driver.
-* Optional page optimization before cache storage: HTML minify, inline/external UCSS generation, JS analysis, lazy media, LCP image priority, Google Fonts preconnect, and guarded JavaScript defer.
+* Optional page optimization before cache storage: HTML minify, server-side unused CSS removal (file, inline, or hybrid), dependency-aware JavaScript deferral, selected third-party script delay, local JavaScript minification, lazy media, LCP image priority, and Google Fonts preconnect.
+* Continuous scheduled preload that warms a controlled batch per run until the cache limit or every published URL is covered.
 * Admin bar purge controls for clearing all cache or only the current page.
 * And more...
 
@@ -37,15 +38,17 @@ When using the File driver, KH Speed Engine can write a raw HTML mirror that Ngi
 
 == Page Optimization ==
 
-KH Speed Engine can optimize cacheable guest HTML before it is saved to File, Redis, Memcached, APCu, or another selected driver. Enable it in the Performance workspace. The pipeline includes HTML/comment cleanup, inline CSS minify, conservative PHP UCSS, hashed CSS assets for eligible same-site stylesheets, native lazy loading for media, first-image LCP priority/preload, Google Fonts preconnect, bounded PHP JS analysis, and optional safe JavaScript defer with exclusions.
+KH Speed Engine can optimize cacheable guest HTML before it is saved to File, Redis, Memcached, APCu, or another selected driver. Enable it in the Optimization workspace. The pipeline includes HTML/comment cleanup, server-side unused CSS removal, dependency-aware JavaScript deferral, selected third-party script delay, local JavaScript minification, native lazy loading for media, first-image LCP priority/preload, and Google Fonts preconnect.
 
-External UCSS reads only same-site .css files under the WordPress root, skips SRI/crossorigin/alternate/preload/importing stylesheets, obeys the configured max file size, rewrites relative url() assets before publishing a hashed CSS file, and keeps the original link if the PHP engine produces no smaller output.
+Unused CSS runs synchronously when the cache is written, so it does not depend on a loopback request. It supports generated-file, inline, and hybrid delivery; a selector safelist; excluded stylesheets; preserved hover/focus/dynamic states; and a staged rollout. A 3-second per-page budget returns the original CSS unchanged when a page is too complex or a stylesheet cannot be parsed safely.
 
-Large sites can preload up to 1000 URLs. KH Speed Engine queues preload work in small batches so dashboard actions do not have to wait for every URL in one request.
+JavaScript optimization uses the WordPress script registry rather than URL guessing. It defers only scripts whose dependency order and inline code allow it, delays selected third-party scripts until interaction or five seconds, and can serve minified local scripts through a signed endpoint. Cart, checkout, and payment scripts are always protected.
+
+The CSS and JavaScript optimizers require PHP 8.1+ and WordPress 6.2+. Other cache and optimization features continue to work on older platforms. Optimization code is adapted from GT Performance 1.3.6 (GPL-2.0-or-later); third-party licenses are listed in `inc/lib/NOTICE.md`.
 
 == Vite and Google Sans Admin Console ==
 
-The KH Speed Engine admin console uses native WordPress admin screens, Vite-built assets that bundle React, and a self-hosted Google Sans variable font. The console is organized into five workspaces: Dashboard, Caching (cache, preload, exclusion rules), Optimization (performance, statistics), Tools (expert mode, benchmark), and About. It includes a cache eligibility URL checker, an on-demand Nginx snippet generator, and AJAX controls for refresh, preload, homepage purge, image queueing, and full cache clear.
+The KH Speed Engine admin console uses native WordPress admin screens, Vite-built assets that bundle React, and a self-hosted Google Sans variable font. The console is organized into five workspaces: Dashboard, Caching (cache, preload, exclusion rules), Optimization (performance, statistics), Tools (expert mode, benchmark, system & debug), and About. It includes a cache eligibility URL checker, an on-demand Nginx snippet generator, and AJAX controls for refresh, preload, homepage purge, and full cache clear.
 
 Build assets with:
 
@@ -60,21 +63,28 @@ One-command version bump and release:
 
 `bun run release`
 `bun run release:minor`
-`powershell -ExecutionPolicy Bypass -File .\bin\release.ps1 -Version 3.1.0 -Note "Release dashboard polish."`
+`bun run release:sh`
+`bun run release:sh:minor`
+`powershell -ExecutionPolicy Bypass -File .\bin\release.ps1 -Version 4.5.0 -Note "Release dashboard polish."`
+`bash bin/release.sh --version 4.5.0 --note "Release dashboard polish."`
 
-`bin/release.ps1` defaults to a patch bump. It syncs `kh-speed-engine.php`, `KHSE_PLUGIN_VERSION`, `README.txt` stable tag, `package.json`, and `CHANGELOG.md`; the About page reads the version from the localized payload, then calls `bin/build-release.ps1`. The release script runs Bun install/build and verifies the Vite manifest before packaging.
+`bin/release.ps1` and `bin/release.sh` default to a patch bump. They sync `kh-speed-engine.php`, `KHSE_PLUGIN_VERSION`, `README.txt` stable tag, `package.json`, the About page version, and `CHANGELOG.md`, then call the matching build script. The build script runs Bun install/build and verifies the Vite manifest before packaging.
 
-The Performance view records recent cache writes and shows what actually happened on each page: bytes before/after, total bytes saved, Local UCSS and External UCSS bytes removed, JS Analysis deferred/analyzed counts, feature-level states such as Applied, No change, Disabled, or Failed. Older reports created before the local engines existed may still show Pending engine.
+The Performance view records recent cache writes and shows what actually happened on each page: bytes before/after, total bytes saved, CSS bytes removed, scripts deferred or delayed, and feature-level states such as Applied, No change, Disabled, or Failed.
 
 All settings forms save in place through authenticated WordPress AJAX requests with nonce and capability checks. The React console writes the same WordPress options used by the cache runtime, so existing option update hooks still run.
 
 Built assets are required for the React console. The release script verifies the Vite manifest before packaging.
 
-== Local UCSS, External UCSS, and JS Analysis ==
+== Unused CSS and JavaScript optimization ==
 
-KH Speed Engine uses built-in PHP engines for Local UCSS, External UCSS, and JS Analysis. Production does not require Bun, Node, PurgeCSS, Composer, or shell_exec. The legacy executable fields remain only for saved-setting compatibility. Bun and frontend packages are build-machine dependencies; run `bun install --frozen-lockfile` and `bun run build` before packaging. Optimization workspaces and runtime config use a private temp directory outside public uploads when available.
+The unused-CSS engine reads same-site stylesheets from local files before making any HTTP request, skips unsupported or excluded sheets, preserves dynamic states and the configured safelist, and writes generated CSS under:
 
-Use the UCSS safelist for dynamic classes JavaScript adds after load. Local UCSS targets inline page CSS. External UCSS targets eligible same-site stylesheet files and inlines optimized output into cached guest HTML. If one CSS block or stylesheet is malformed, KH Speed Engine keeps that block or stylesheet raw and still optimizes valid items.
+`wp-content/uploads/kh-speed-engine/<site>/optimized_css/`
+
+The JavaScript optimizer protects transactional cart, checkout, and payment scripts automatically. Delayed scripts load on pointer, keyboard, or touch interaction, or after five seconds. The signed minifier endpoint serves only validated local scripts and redirects to the original file when optimization is off or an artifact is unavailable.
+
+Production does not require Bun, Node, Composer, or shell_exec. Bun and the frontend toolchain are build-machine dependencies only.
 
 Notice:
 
@@ -101,25 +111,10 @@ KH Speed Engine caches entire webpages into static HTML files. Therefore, it is 
 
 Be aware that logged-in users will not trigger the caching process. To verify caching, use incognito mode or a different browser to revisit the same webpage, and then you can check the cache status in one of the following ways:
 
-- View the source code of the webpage and check the debug message as shown in screenshot (L).
-- Enable the benchmark information in the footer section as shown in screenshot (K), where you can see the cache status.
+- View the source code of the webpage and check for the debug message.
+- Enable the benchmark information in the footer section, where you can see the cache status.
 
 If there is no debug message in the source code, or if the cache status consistently displays 'No', there might be a plugin conflict with KH Speed Engine that prevents it from working correctly.
-
-== Screenshots ==
-
-1. Setting page - Basic.
-2. Setting page - Basic (Bottom).
-3. Setting page - Advanced.
-4. Setting page - Perferences.
-5. Setting page - Benchmark.
-6. Setting page - Exclusion.
-7. Setting page - Expert mode.
-8. Setting page - Cache statistics.
-9. Setting page - About author.
-10. Front page - Benchmark (footer text)
-11. Debug message (Normal mode)
-12. Debug message (Expert mode)
 
 == Translation ==
 
